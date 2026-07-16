@@ -1,0 +1,163 @@
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  Activity, Archive, Atom, Bot, Boxes, ChevronLeft, CircleDollarSign, Columns3,
+  Command, Cpu, FileCode2, FolderTree, Gauge, GitBranch, History, Inbox, Menu,
+  MessageSquareText, Moon, Network, Orbit, Radio, Search, Settings, Sparkles,
+  Sun, TerminalSquare, Timer, WandSparkles, Workflow, X, Zap,
+} from "lucide-react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useLocalStorage } from "../hooks/useLocalStorage";
+
+const navigation = [
+  { group: "Flight deck", items: [
+    { to: "/observatory", label: "Observatoire", icon: Orbit },
+    { to: "/chat/pi", label: "Pi Chat", icon: MessageSquareText, badge: "PI" },
+    { to: "/chat/codex", label: "Codex Chat", icon: Command, badge: "CX" },
+    { to: "/inbox", label: "Human Inbox", icon: Inbox, badge: "3" },
+  ]},
+  { group: "Orchestration", items: [
+    { to: "/agents", label: "Agents", icon: Bot, badge: "4" },
+    { to: "/skills", label: "Skills", icon: WandSparkles, badge: "77" },
+    { to: "/cron", label: "Cron Jobs", icon: Timer, badge: "3" },
+    { to: "/kanban", label: "Kanban", icon: Columns3, badge: "5" },
+  ]},
+  { group: "Workspace", items: [
+    { to: "/knowledge", label: "Knowledge", icon: Atom },
+    { to: "/files", label: "Files & Editor", icon: FolderTree },
+    { to: "/artifacts", label: "Artifacts", icon: Archive },
+    { to: "/memory", label: "Memory", icon: Cpu },
+  ]},
+  { group: "Systems", items: [
+    { to: "/vibe", label: "Vibe-Trading", icon: Zap, badge: "LAB" },
+    { to: "/trading", label: "Market Panel", icon: Activity, badge: "LIVE" },
+    { to: "/switchboard", label: "Switchboard", icon: Network },
+    { to: "/control", label: "Control Center", icon: Gauge },
+    { to: "/activity", label: "Activity", icon: History },
+    { to: "/usage", label: "Usage", icon: CircleDollarSign },
+    { to: "/settings", label: "Réglages", icon: Settings },
+  ]},
+];
+
+export function AppLayout() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [theme, setTheme] = useLocalStorage<"dark" | "light">("pi-os-theme", "dark");
+  const [demoMode, setDemoMode] = useLocalStorage("pi-os-demo-mode", true);
+  const [motion] = useLocalStorage("orbit-motion", true);
+  const [dense] = useLocalStorage("orbit-dense", false);
+  const [toast, setToast] = useState("");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const allItems = navigation.flatMap((section) => section.items);
+
+  useEffect(() => setMobileOpen(false), [location.pathname]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
+  useEffect(() => {
+    document.documentElement.dataset.motion = motion ? "on" : "off";
+    document.documentElement.dataset.density = dense ? "compact" : "comfortable";
+  }, [motion, dense]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+      if (event.key === "Escape") setPaletteOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const go = (path: string) => {
+    navigate(path);
+    setPaletteOpen(false);
+  };
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2100);
+  };
+  const handleFeedback = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const button = (event.target as HTMLElement).closest("button");
+    if (!button || button.disabled || button.dataset.noFeedback === "true") return;
+    const label = button.dataset.feedback || button.getAttribute("aria-label") || button.textContent?.trim() || "Action";
+    showToast(label.slice(0, 64) + " · simulé");
+  };
+
+  return (
+    <div className={"app-shell v03-shell " + (collapsed ? "sidebar-collapsed" : "")} onClickCapture={handleFeedback}>
+      <div className="space-scene" aria-hidden="true">
+        <i className="stars stars-a" /><i className="stars stars-b" /><i className="stars stars-c" />
+        <i className="space-horizon" /><i className="orbital-glow glow-a" /><i className="orbital-glow glow-b" />
+        <i className="meteor meteor-one" /><i className="meteor meteor-two" />
+      </div>
+      <aside className={"sidebar " + (mobileOpen ? "mobile-open" : "")}>
+        <div className="brand">
+          <div className="brand-mark"><Orbit size={21} /><i /></div>
+          <div className="brand-copy"><strong>ORBIT <span>/ OS</span></strong><small>Pi + Codex control plane</small></div>
+          <button className="icon-button desktop-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Agrandir la navigation" : "Réduire la navigation"} data-no-feedback="true"><ChevronLeft size={17} /></button>
+          <button className="icon-button mobile-close" onClick={() => setMobileOpen(false)} aria-label="Fermer la navigation"><X size={18} /></button>
+        </div>
+
+        <nav className="main-nav" aria-label="Navigation principale">
+          {navigation.map((section) => (
+            <div className="nav-section" key={section.group}>
+              <p className="nav-label">{section.group}</p>
+              {section.items.map(({ to, label, icon: Icon, badge }) => (
+                <NavLink key={to} to={to} className={({ isActive }) => "nav-link " + (isActive ? "active" : "")} title={collapsed ? label : undefined}>
+                  <Icon size={17} /><span>{label}</span>{badge && <em>{badge}</em>}
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <button className={"demo-pulse " + (demoMode ? "active" : "")} onClick={() => setDemoMode(!demoMode)} data-feedback={demoMode ? "Mode démo désactivé" : "Mode démo activé"}>
+            <span className="pulse-dot" /><span><strong>Simulation live</strong><small>{demoMode ? "Événements en orbite" : "Flux en pause"}</small></span><Radio size={14} />
+          </button>
+          <div className="profile-chip"><div className="profile-avatar">PB</div><div><strong>Workspace de Paul</strong><small>V0.4 · Localhost</small></div><Sparkles size={15} /></div>
+        </div>
+      </aside>
+
+      <div className="workspace-shell">
+        <header className="topbar">
+          <button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Ouvrir la navigation"><Menu size={19} /></button>
+          <div className="breadcrumbs"><Boxes size={15} /><span>Orbit OS</span><i>/</i><strong>{allItems.find((item) => item.to === location.pathname)?.label ?? "Observatoire"}</strong></div>
+          <button className="command-search" onClick={() => setPaletteOpen(true)}><Search size={15} /><span>Rechercher, ouvrir ou piloter…</span><kbd>⌘ K</kbd></button>
+          <button className="system-chip" onClick={() => go("/switchboard")} data-feedback="Switchboard ouvert"><Network size={14} /><span>7/9 systèmes</span><i /></button>
+          <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Activer le thème lunaire clair" : "Activer le thème orbital sombre"} data-feedback={theme === "dark" ? "Thème lunaire activé" : "Thème orbital activé"}>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
+        </header>
+        {demoMode && <div className="live-transmission"><span><Radio size={12} />LIVE</span><div><i>Atlas indexe le workspace</i><i>Pi consolide 4 mémoires</i><i>Codex prépare le plan V0.4</i><i>Heron observe BTC/USD</i></div></div>}
+        <main className="main-content"><Outlet /></main>
+      </div>
+
+      {paletteOpen && (
+        <div className="modal-backdrop" onMouseDown={() => setPaletteOpen(false)}>
+          <div className="command-palette v03-palette" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="palette-input"><Search size={18} /><input autoFocus placeholder="Commande, fichier, agent ou page…" /><kbd>ESC</kbd></div>
+            <div className="palette-orbit"><span><Command size={13} />Universal command deck</span><small>Actions simulées · aucune commande terminal</small></div>
+            <p className="palette-label">Actions rapides</p>
+            <div className="palette-results">
+              <button onClick={() => go("/chat/codex")}><Command size={17} /><span><strong>Demander à Codex de construire</strong><small>Ouvrir une session en mode Build</small></span><kbd>↵</kbd></button>
+              <button onClick={() => go("/chat/pi")}><Bot size={17} /><span><strong>Planifier avec Pi</strong><small>Orchestrer le workspace partagé</small></span></button>
+              <button onClick={() => go("/control")}><TerminalSquare size={17} /><span><strong>Piloter les services</strong><small>Control Center visuel</small></span></button>
+              <button onClick={() => go("/vibe")}><Zap size={17} /><span><strong>Explorer Vibe-Trading</strong><small>Docs, skills, agents et commandes</small></span></button>
+              <button onClick={() => go("/kanban")}><Columns3 size={17} /><span><strong>Créer une mission</strong><small>Ajouter une carte au Kanban partagé</small></span></button>
+              <button onClick={() => go("/switchboard")}><GitBranch size={17} /><span><strong>Inspecter les connexions</strong><small>Voir le System Switchboard</small></span></button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <div className="action-toast" role="status"><CheckPulse /><span>{toast}</span></div>}
+    </div>
+  );
+}
+
+function CheckPulse() {
+  return <span className="toast-pulse"><i /></span>;
+}
