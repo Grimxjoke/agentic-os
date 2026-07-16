@@ -81,6 +81,8 @@ Validation réalisée :
 
 ### Phase 1 — fondation testable et persistante
 
+État au 16 juillet 2026 : implémentation, suite locale et validation production terminées sur la branche Phase 1.
+
 Livrables :
 
 - découpage de `server.mjs` en modules testables ;
@@ -98,6 +100,15 @@ Tests :
 - migrations forward sur base vide et snapshot ;
 - crash pendant écriture ;
 - redaction et absence de secrets dans les réponses.
+
+Validation réalisée :
+
+- build TypeScript/Vite et dix-huit tests unitaires/intégration verts ;
+- migration et sauvegarde SQLite réelles sous `/var/lib/orbit-os` ;
+- session publique initialisée puis révoquée sans exposer le jeton permanent ;
+- page System validée sur l’API publique protégée ;
+- appel Codex Plan réel, job et messages relus depuis SQLite ;
+- service épinglé sur Node 22 et probes internes/publiques vertes.
 
 ### Phase 2 — Vibe réel
 

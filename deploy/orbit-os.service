@@ -10,8 +10,9 @@ Group=codex
 WorkingDirectory=/home/codex/agentic-os
 Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
+Environment=ORBIT_DATA_DIR=/var/lib/orbit-os
 EnvironmentFile=/etc/agentic-os/orbit.env
-ExecStart=/usr/bin/node /home/codex/agentic-os/server.mjs
+ExecStart=/usr/local/bin/node /home/codex/agentic-os/server.mjs
 Restart=always
 RestartSec=3
 TimeoutStopSec=20
@@ -19,7 +20,7 @@ UMask=0077
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/root/.pi
+ReadWritePaths=/root/.pi /var/lib/orbit-os
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
