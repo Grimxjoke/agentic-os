@@ -1,28 +1,19 @@
 :18080 {
-    encode zstd gzip
+	bind 127.0.0.1
+	encode zstd gzip
 
-    # Orbit OS — persistent PI/Codex control plane
-    @orbit {
-        path /orbit /orbit/*
-    }
-    reverse_proxy @orbit http://127.0.0.1:4173
+	route {
+		# Orbit OS is the only public application. The legacy services remain
+		# available for rollback but are no longer routed publicly.
+		@root path /
+		redir @root /orbit/ 308
 
-    # Grafana
-    @grafana {
-        path /grafana/*
-    }
-    reverse_proxy @grafana http://127.0.0.1:3001
+		@orbit path /orbit /orbit/*
+		reverse_proxy @orbit http://127.0.0.1:4173
 
-    # Chat (Open-WebUI)
-    @chat {
-        path /chat/*
-    }
-    reverse_proxy @chat http://127.0.0.1:8080
+		@probes path /healthz /readyz
+		reverse_proxy @probes http://127.0.0.1:4173
 
-    # Everything else → Hermes WebUI Dashboard :8788 (new dashboard migration)
-    reverse_proxy http://127.0.0.1:8788 {
-        header_up ngrok-skip-browser-warning "true"
-        # Drop duplicate Server header from upstream (dashboard also sets Server)
-        header_down -Server
-    }
+		respond 404
+	}
 }

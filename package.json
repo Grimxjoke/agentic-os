@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "node server.mjs --dev",
     "build": "tsc -b && vite build",
+    "pretest": "npm run build",
+    "test": "node --test --test-concurrency=1",
+    "check:health": "node scripts/check-health.mjs",
     "preview": "vite preview",
     "start": "node server.mjs"
   },

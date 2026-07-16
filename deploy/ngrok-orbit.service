@@ -1,0 +1,27 @@
+[Unit]
+Description=Orbit OS permanent ngrok tunnel
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/snap/bin/ngrok http 18080 --log=stdout --log-format=logfmt
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/snap/ngrok
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
