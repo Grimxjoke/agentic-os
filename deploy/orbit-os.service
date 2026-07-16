@@ -9,10 +9,25 @@ User=codex
 Group=codex
 WorkingDirectory=/home/codex/agentic-os
 Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
 EnvironmentFile=/etc/agentic-os/orbit.env
 ExecStart=/usr/bin/node /home/codex/agentic-os/server.mjs
 Restart=always
 RestartSec=3
+TimeoutStopSec=20
+UMask=0077
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/.pi
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# NoNewPrivileges cannot be enabled yet: the PI/Codex bridge deliberately uses
+# narrowly allowlisted sudo commands to create isolated transient units.
 
 [Install]
 WantedBy=multi-user.target

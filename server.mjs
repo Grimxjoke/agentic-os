@@ -10,12 +10,16 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const workspace = resolve(process.env.ORBIT_WORKSPACE || root);
 const port = Number(process.env.PORT || 4173);
-const host = process.env.HOST || "0.0.0.0";
+const host = process.env.HOST || "127.0.0.1";
 const isDev = process.argv.includes("--dev");
 const accessToken = process.env.ORBIT_ACCESS_TOKEN || randomBytes(32).toString("base64url");
 const cookieName = "orbit_access";
 const basePath = "/orbit";
 const activeAgents = new Set();
+
+if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+  throw new Error(`PORT invalide: ${process.env.PORT || ""}`);
+}
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -43,24 +47,34 @@ function cookieValue(req) {
   return "";
 }
 
+function securityHeaders(extra = {}) {
+  return {
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    ...extra,
+  };
+}
+
 function json(res, status, payload) {
   const body = JSON.stringify(payload);
-  res.writeHead(status, {
+  res.writeHead(status, securityHeaders({
     "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
-    "X-Content-Type-Options": "nosniff",
-  });
+  }));
   res.end(body);
 }
 
 function unauthorized(res, pathname = `${basePath}/`) {
   const body = `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width"><title>Orbit OS</title><style>body{font:16px system-ui;background:#0d1117;color:#e6edf3;display:grid;place-items:center;min-height:100vh;margin:0}main{width:min(480px,calc(100% - 64px));padding:32px;border:1px solid #30363d;border-radius:14px;background:#161b22}form{display:flex;gap:8px;margin-top:22px}input{min-width:0;flex:1;padding:12px;color:#e6edf3;background:#0d1117;border:1px solid #30363d;border-radius:8px}button{padding:12px 18px;color:#081018;background:#7ee787;border:0;border-radius:8px;font-weight:700}</style><main><h1>Accès protégé</h1><p>Saisissez votre jeton Orbit OS. Une fois validé, cet appareil restera connecté pendant 30 jours.</p><form method=get action="${pathname}"><input type=password name=access autocomplete=current-password required autofocus placeholder="Jeton d’accès"><button>Ouvrir</button></form></main>`;
-  res.writeHead(401, {
+  res.writeHead(401, securityHeaders({
     "Cache-Control": "no-store",
     "Content-Type": "text/html; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
-  });
+  }));
   res.end(body);
 }
 
@@ -89,12 +103,12 @@ async function readJson(req, limit = 24 * 1024) {
   }
 }
 
-function run(command, args, timeoutMs = 10 * 60 * 1000) {
+function run(command, args, timeoutMs = 10 * 60 * 1000, input = "") {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(command, args, {
       cwd: workspace,
       env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
     const stdout = [];
     const stderr = [];
@@ -110,6 +124,8 @@ function run(command, args, timeoutMs = 10 * 60 * 1000) {
     };
     child.stdout.on("data", collect(stdout));
     child.stderr.on("data", collect(stderr));
+    child.stdin.on("error", () => undefined);
+    child.stdin.end(input);
     child.on("error", rejectRun);
     const timeout = setTimeout(() => child.kill("SIGTERM"), timeoutMs);
     child.on("close", (code, signal) => {
@@ -152,8 +168,7 @@ async function chatWithPi({ message, mode, sessionId }) {
   const result = await run("sudo", [
     "-n", "pi", "--print", "--approve", "--session-id", safeSessionId,
     "--tools", "read,grep,find,ls", "--append-system-prompt", systemPrompt,
-    `[Mode ${mode}] ${message}`,
-  ]);
+  ], 10 * 60 * 1000, `[Mode ${mode}] ${message}\n`);
   if (result.code !== 0) throw new Error(result.stderr.trim() || `PI s’est arrêté avec le code ${result.code}`);
   return { reply: result.stdout.trim(), sessionId: safeSessionId, safety: "read-only" };
 }
@@ -179,9 +194,9 @@ async function chatWithCodex({ message, mode, sessionId }) {
   // danger-full-access only inside that constrained unit.
   const globalArgs = ["codex", "-a", "never", "--sandbox", "danger-full-access", "exec"];
   const args = /^[0-9a-f-]{36}$/i.test(sessionId || "")
-    ? [...isolationArgs, ...globalArgs, "resume", "--json", sessionId, prompt]
-    : [...isolationArgs, ...globalArgs, "--json", "--color", "never", "-C", workspace, prompt];
-  const result = await run("sudo", args);
+    ? [...isolationArgs, ...globalArgs, "resume", "--json", sessionId, "-"]
+    : [...isolationArgs, ...globalArgs, "--json", "--color", "never", "-C", workspace, "-"];
+  const result = await run("sudo", args, 10 * 60 * 1000, `${prompt}\n`);
   const parsed = parseCodexOutput(result.stdout);
   if (result.code !== 0 || !parsed.reply) {
     const detail = result.stderr.trim() || result.stdout.trim() || `Codex s’est arrêté avec le code ${result.code}`;
@@ -238,12 +253,11 @@ async function serveStatic(req, res, url) {
   try {
     await access(file);
     const info = await stat(file);
-    res.writeHead(200, {
+    res.writeHead(200, securityHeaders({
       "Content-Type": mimeTypes[extname(file)] || "application/octet-stream",
       "Content-Length": info.size,
       "Cache-Control": file.endsWith("index.html") ? "no-cache" : "public, max-age=31536000, immutable",
-      "X-Content-Type-Options": "nosniff",
-    });
+    }));
     createReadStream(file).pipe(res);
   } catch {
     json(res, 503, { error: "Build absent. Lancez npm run build." });
@@ -260,35 +274,63 @@ if (isDev) {
 }
 
 const server = createServer(async (req, res) => {
-  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
-  const queryToken = url.searchParams.get("access") || "";
-  if (queryToken && tokenMatches(queryToken)) {
-    const secure = req.headers["x-forwarded-proto"] === "https";
-    url.searchParams.delete("access");
-    res.writeHead(302, {
-      Location: `${url.pathname}${url.search}`,
-      "Cache-Control": "no-store",
-      "Set-Cookie": `${cookieName}=${encodeURIComponent(accessToken)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000${secure ? "; Secure" : ""}`,
-    });
+  try {
+    const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+    const isLiveness = url.pathname === "/healthz" || url.pathname === `${basePath}/healthz`;
+    const isReadiness = url.pathname === "/readyz" || url.pathname === `${basePath}/readyz`;
+    if (req.method === "GET" && isLiveness) return json(res, 200, { ok: true, status: "alive" });
+    if (req.method === "GET" && isReadiness) {
+      try {
+        await access(join(root, "dist", "index.html"));
+        return json(res, 200, { ok: true, status: "ready" });
+      } catch {
+        return json(res, 503, { ok: false, status: "not_ready" });
+      }
+    }
+
+    const queryToken = url.searchParams.get("access") || "";
+    if (queryToken && tokenMatches(queryToken)) {
+      const secure = req.headers["x-forwarded-proto"] === "https";
+      url.searchParams.delete("access");
+      res.writeHead(302, securityHeaders({
+        Location: `${url.pathname}${url.search}`,
+        "Cache-Control": "no-store",
+        "Set-Cookie": `${cookieName}=${encodeURIComponent(accessToken)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000${secure ? "; Secure" : ""}`,
+      }));
+      return res.end();
+    }
+    if (!tokenMatches(cookieValue(req))) return unauthorized(res, url.pathname);
+    if (url.pathname === "/" || url.pathname === basePath) {
+      res.writeHead(302, securityHeaders({ Location: `${basePath}/`, "Cache-Control": "no-store" }));
+      return res.end();
+    }
+    const routedPath = url.pathname.startsWith(`${basePath}/`) ? url.pathname.slice(basePath.length) : url.pathname;
+    if (routedPath.startsWith("/api/")) {
+      const routedUrl = new URL(url);
+      routedUrl.pathname = routedPath;
+      return await handleApi(req, res, routedUrl);
+    }
+    if (vite) return vite.middlewares(req, res, () => json(res, 404, { error: "Introuvable" }));
+    return await serveStatic(req, res, url);
+  } catch (error) {
+    const badRequest = error instanceof URIError;
+    console.error("Orbit request failed", badRequest ? "invalid-uri" : error);
+    if (!res.headersSent) return json(res, badRequest ? 400 : 500, { error: badRequest ? "URL invalide" : "Erreur interne" });
     return res.end();
   }
-  if (!tokenMatches(cookieValue(req))) return unauthorized(res, url.pathname);
-  if (url.pathname === "/" || url.pathname === basePath) {
-    res.writeHead(302, { Location: `${basePath}/`, "Cache-Control": "no-store" });
-    return res.end();
-  }
-  const routedPath = url.pathname.startsWith(`${basePath}/`) ? url.pathname.slice(basePath.length) : url.pathname;
-  if (routedPath.startsWith("/api/")) {
-    const routedUrl = new URL(url);
-    routedUrl.pathname = routedPath;
-    return handleApi(req, res, routedUrl);
-  }
-  if (vite) return vite.middlewares(req, res, () => json(res, 404, { error: "Introuvable" }));
-  return serveStatic(req, res, url);
 });
+
+server.on("error", (error) => {
+  console.error("Orbit server error", error);
+  process.exitCode = 1;
+});
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => server.close(() => process.exit(0)));
+}
 
 server.listen(port, host, () => {
   console.log(`Orbit OS ${isDev ? "dev" : "production"} listening on http://${host}:${port}`);
-  console.log(`Access URL: http://localhost:${port}${basePath}/?access=${accessToken}`);
+  console.log(`Protected application path: ${basePath}/`);
   console.log(`Workspace: ${workspace}`);
 });
