@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { after, before, test } from "node:test";
 
 const token = "orbit-phase-zero-test-token";
 let child;
+let fakeBin;
 let origin;
 
 async function freePort() {
@@ -49,6 +53,20 @@ async function rawStatus(path) {
 }
 
 before(async () => {
+  fakeBin = await mkdtemp(join(tmpdir(), "orbit-test-bin-"));
+  await writeFile(join(fakeBin, "sudo"), `#!/usr/bin/env node
+const args = process.argv.slice(2);
+process.stdin.resume();
+process.stdin.on("end", () => {
+  if (args.includes("resume")) {
+    process.stderr.write("Error: thread/resume failed: no rollout found for thread id 00000000-0000-4000-8000-000000000000");
+    process.exitCode = 1;
+    return;
+  }
+  process.stdout.write(JSON.stringify({ type: "thread.started", thread_id: "11111111-1111-4111-8111-111111111111" }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "CODEX_SESSION_RECOVERED" } }) + "\\n");
+});
+`, { mode: 0o755 });
   const port = await freePort();
   origin = `http://127.0.0.1:${port}`;
   child = spawn(process.execPath, ["server.mjs"], {
@@ -59,6 +77,7 @@ before(async () => {
       PORT: String(port),
       ORBIT_ACCESS_TOKEN: token,
       ORBIT_WORKSPACE: process.cwd(),
+      PATH: `${fakeBin}:${process.env.PATH || ""}`,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -66,9 +85,11 @@ before(async () => {
 });
 
 after(async () => {
-  if (!child || child.exitCode !== null) return;
-  child.kill("SIGTERM");
-  await once(child, "exit");
+  if (child && child.exitCode === null) {
+    child.kill("SIGTERM");
+    await once(child, "exit");
+  }
+  if (fakeBin) await rm(fakeBin, { recursive: true, force: true });
 });
 
 test("liveness and readiness disclose no private configuration", async () => {
@@ -126,6 +147,28 @@ test("cross-origin writes are rejected before agent execution", async () => {
   });
   assert.equal(response.status, 403);
   assert.deepEqual(await response.json(), { error: "Origine refusée" });
+});
+
+test("a missing Codex rollout starts a fresh session", async () => {
+  const response = await fetch(`${origin}/orbit/api/chat`, {
+    method: "POST",
+    headers: {
+      Cookie: `orbit_access=${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      agent: "codex",
+      mode: "plan",
+      message: "recover this stale session",
+      sessionId: "00000000-0000-4000-8000-000000000000",
+    }),
+  });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.reply, "CODEX_SESSION_RECOVERED");
+  assert.equal(body.sessionReset, true);
+  assert.equal(body.sessionId, "11111111-1111-4111-8111-111111111111");
 });
 
 test("malformed encoded paths do not crash the server", async () => {

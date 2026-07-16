@@ -193,16 +193,23 @@ async function chatWithCodex({ message, mode, sessionId }) {
   // transient systemd unit above is the outer sandbox; Codex therefore runs in
   // danger-full-access only inside that constrained unit.
   const globalArgs = ["codex", "-a", "never", "--sandbox", "danger-full-access", "exec"];
-  const args = /^[0-9a-f-]{36}$/i.test(sessionId || "")
-    ? [...isolationArgs, ...globalArgs, "resume", "--json", sessionId, "-"]
+  const requestedSessionId = /^[0-9a-f-]{36}$/i.test(sessionId || "") ? sessionId : "";
+  const argsFor = (resumeId = "") => resumeId
+    ? [...isolationArgs, ...globalArgs, "resume", "--json", resumeId, "-"]
     : [...isolationArgs, ...globalArgs, "--json", "--color", "never", "-C", workspace, "-"];
-  const result = await run("sudo", args, 10 * 60 * 1000, `${prompt}\n`);
+  let result = await run("sudo", argsFor(requestedSessionId), 10 * 60 * 1000, `${prompt}\n`);
+  let sessionReset = false;
+  const resumeError = `${result.stderr}\n${result.stdout}`;
+  if (requestedSessionId && result.code !== 0 && /no rollout found for thread id/i.test(resumeError)) {
+    result = await run("sudo", argsFor(), 10 * 60 * 1000, `${prompt}\n`);
+    sessionReset = true;
+  }
   const parsed = parseCodexOutput(result.stdout);
   if (result.code !== 0 || !parsed.reply) {
     const detail = result.stderr.trim() || result.stdout.trim() || `Codex s’est arrêté avec le code ${result.code}`;
     throw new Error(detail.slice(-1200));
   }
-  return { reply: parsed.reply, sessionId: parsed.sessionId || sessionId, safety: sandbox };
+  return { reply: parsed.reply, sessionId: parsed.sessionId || requestedSessionId, sessionReset, safety: sandbox };
 }
 
 async function handleApi(req, res, url) {
