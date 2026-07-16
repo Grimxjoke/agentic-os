@@ -48,6 +48,8 @@ Le serveur Node reste la frontière publique :
 
 ### Phase 0 — baseline et sécurité réseau
 
+État au 16 juillet 2026 : socle déployé et tests de restart réussis. La seule action externe restante est la confirmation de révocation des anciens tokens de tunnels dans les consoles fournisseurs.
+
 Livrables :
 
 - premier commit de l’état actuel ;
@@ -66,6 +68,16 @@ Tests :
 - scan des ports attendus ;
 - redémarrage du VPS simulé par restart des unités ;
 - vérification du lien public et des deep links.
+
+Validation réalisée :
+
+- build TypeScript/Vite et six tests d’intégration verts ;
+- Orbit et Caddy limités à loopback ; port Hermes Control fermé ;
+- unique tunnel applicatif ngrok géré par systemd ;
+- domaine permanent, auth, deep links, PI et Codex retestés après restart simultané ;
+- anciennes unités/tunnels Hermes arrêtés, désactivés et retirés ;
+- conteneurs, images, réseaux, superviseurs et arbres Hermes/Grafana supprimés après validation ;
+- historique, arbre et diff Git scannés sans secret détecté.
 
 ### Phase 1 — fondation testable et persistante
 
@@ -318,4 +330,3 @@ Commencer par Phase 0 puis Phase 1, sans intégrer tout Vibe en une fois. Le pre
 3. une base persistante et testée ;
 4. plus aucun faux toast global ;
 5. un socle sur lequel le chat Vibe et les swarms pourront être branchés sans refaire l’architecture.
-

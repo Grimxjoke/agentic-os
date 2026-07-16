@@ -8,7 +8,8 @@
 - Le tunnel ngrok permanent est géré par `ngrok-orbit.service`.
 - Les credentials restent exclusivement hors Git dans des fichiers root protégés.
 - Les messages utilisateur sont transmis aux CLIs par stdin et ne figurent pas dans les arguments journalisés par sudo.
-- Les services Hermes restent installés pendant la fenêtre de rollback, mais ne sont plus routés publiquement. Hermes Control est arrêté pour fermer son port public `10275`.
+- Les unités, tunnels, superviseurs, conteneurs, images, réseaux et arbres applicatifs Hermes/Grafana sont supprimés après validation de la bascule.
+- Le port public `10275` est fermé.
 
 ## Vérification
 
@@ -25,7 +26,8 @@ Résultat réseau attendu :
 - `127.0.0.1:4173` : Orbit ;
 - `127.0.0.1:18080` : Caddy ;
 - aucun `0.0.0.0:4173` ;
-- aucun port `10275` après l'arrêt de Hermes Control.
+- aucun port `10275`.
+- aucun processus `cloudflared` ni tunnel ngrok autre que `ngrok-orbit.service`.
 
 ## Rollback Caddy
 
@@ -64,10 +66,8 @@ sudo /snap/bin/ngrok http 18080 --log=stdout --log-format=logfmt
 
 Le dernier recours est volontairement interactif afin de ne pas créer un second tunnel orphelin en arrière-plan.
 
-## Rollback Hermes Control
+## Hermes
 
-Le conteneur reste présent mais arrêté. Pour rouvrir explicitement l'ancienne interface :
-
-```text
-sudo docker start hermes-control-interface-hci-1
-```
+La suppression Hermes/Grafana est volontaire et explicitement autorisée. Elle n’a
+pas de rollback applicatif : aucun historique ni donnée Hermes ne devait être
+conservé. Le rollback Phase 0 couvre uniquement Orbit, Caddy et le tunnel public.

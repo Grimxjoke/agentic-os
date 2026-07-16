@@ -1,6 +1,6 @@
 # Orbit OS — cartographie de l’existant
 
-État observé le 16 juillet 2026. Cette carte décrit ce qui existe réellement, ce qui est simulé et ce qui peut être réutilisé. Elle ne constitue pas une promesse fonctionnelle.
+État observé le 16 juillet 2026, actualisé après la sécurisation Phase 0. Cette carte décrit ce qui existe réellement, ce qui est simulé et ce qui peut être réutilisé. Elle ne constitue pas une promesse fonctionnelle.
 
 ## 1. Résumé exécutif
 
@@ -8,17 +8,17 @@ Orbit est aujourd’hui un prototype React/Vite visuellement riche, mais presque
 
 Vibe-Trading est à l’inverse un moteur de recherche quantitative complet : sessions persistantes, outils de marché, backtests, validation, hypothèses, swarms multi-agents, connecteurs brokers et garde-fous live. Son dépôt est présent sur le VPS mais il n’est ni installé, ni configuré, ni démarré. Il ne contient encore aucune donnée utilisateur.
 
-Hermes occupe plusieurs services, conteneurs, tunnels et routes réseau. Il est déclaré obsolète et supprimable par le propriétaire. Sa suppression devra cependant être transactionnelle, car le tunnel public permanent traverse aujourd’hui le Caddy qui route aussi Orbit.
+Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Déclaré obsolète et supprimable par le propriétaire, il a été retiré transactionnellement après la bascule et le test de redémarrage du chemin public Orbit.
 
 ## 2. Dépôts et responsabilités
 
 | Emplacement | État | Rôle futur |
 |---|---|---|
-| `/home/codex/agentic-os` | dépôt Git sans commit, application entière non suivie | source de vérité Orbit |
+| `/home/codex/agentic-os` | dépôt Git public, baseline sur `main`, travail Phase 0 sur branche dédiée | source de vérité Orbit |
 | `/root/Vibe-Trading` | dépôt upstream propre, commit `66ceb74` | dépendance moteur, version à épingler et déployer sous un utilisateur non-root |
 | `/home/codex/Agentic OS` | dépôt presque vide | doublon à retirer après vérification |
-| `/opt/agentic-os` | ancienne pile Docker/Caddy/Hermes | conserver seulement l’infrastructure encore utile |
-| `/opt/hermes-*`, `/root/.hermes` | ancien produit | supprimable après bascule réseau et sauvegarde de configuration minimale |
+| `/opt/agentic-os` | Caddy, MCP et infrastructure non-Hermes conservés ; arbres Hermes/Grafana supprimés | conserver l’infrastructure utile à Orbit |
+| `/opt/hermes-*`, `/root/.hermes` | supprimés après bascule, restart et validation publique | aucun rôle futur |
 
 ## 3. Orbit actuel
 
@@ -28,8 +28,8 @@ Hermes occupe plusieurs services, conteneurs, tunnels et routes réseau. Il est 
 - Serveur Node natif dans `server.mjs`, sans framework ni base de données.
 - Authentification par jeton permanent transformé en cookie HTTP-only de 30 jours.
 - Build statique servi sous `/orbit/`.
-- Service systemd `orbit-os.service`, actuellement exposé sur `0.0.0.0:4173`.
-- Aucun test frontend, backend ou end-to-end.
+- Service systemd `orbit-os.service`, lié uniquement à `127.0.0.1:4173` et durci par sandbox systemd.
+- Six tests d’intégration backend couvrent probes, authentification, cookie, origine, deep links et URL malformée. Il n’existe pas encore de test frontend ou end-to-end navigateur.
 
 ### 3.2 Matrice réel / local / simulé
 
@@ -59,12 +59,15 @@ Hermes occupe plusieurs services, conteneurs, tunnels et routes réseau. Il est 
 
 `server.mjs` fournit actuellement :
 
+- `GET /healthz` et `GET /readyz`, avec alias sous `/orbit/` ;
 - `GET /api/health` ;
 - `POST /api/chat` pour PI ou Codex ;
 - limitation à une requête simultanée par agent ;
 - contrôle d’origine ;
 - taille de requête et de sortie bornée ;
 - timeout des processus ;
+- en-têtes de sécurité communs et gestion des erreurs de requête ;
+- transmission des prompts par stdin pour éviter leur présence dans les arguments journalisés ;
 - sandbox systemd différente pour les modes Plan et Build de Codex.
 
 Limites :
@@ -74,7 +77,6 @@ Limites :
 - aucun modèle d’autorisation par action ;
 - aucune API Files, Agents, Workflow, Usage ou Audit ;
 - jeton global plutôt que session révocable ;
-- le service écoute directement sur toutes les interfaces réseau ;
 - les erreurs Codex ne sont pas encore suffisamment instrumentées pour le diagnostic depuis l’UI.
 
 ## 4. Vibe-Trading actuel
@@ -155,34 +157,33 @@ La concurrence doit donc être bornée. Quatre workers LLM ne signifient pas qua
 ```text
 Internet
   → domaine ngrok réservé
-  → Caddy :18080
-      ├─ /orbit/* → Orbit :4173
-      ├─ /grafana/* → :3001 (route morte)
-      ├─ /chat/* → ancien service
-      └─ /* → Hermes WebUI :8788
+  → ngrok-orbit.service
+  → Caddy 127.0.0.1:18080
+      ├─ / → redirection /orbit/
+      ├─ /orbit/* → Orbit 127.0.0.1:4173
+      ├─ /healthz et /readyz → Orbit
+      └─ toute autre route → 404
 ```
 
-Un second tunnel Cloudflare éphémère pointe aussi directement vers Orbit. Deux autres tunnels Cloudflare Hermes et un tunnel ngrok Hermes sont actifs.
+Le domaine permanent est `https://trailside-capacity-worst.ngrok-free.dev`. Les tunnels Cloudflare et ngrok Hermes concurrents sont supprimés du VPS. Le tunnel Orbit est l’unique tunnel applicatif actif.
 
-### 5.3 Services obsolètes identifiés
+### 5.3 Services obsolètes traités en Phase 0
 
-- `hermes-gateway.service` ;
-- `hermes-operator-ui.service` ;
-- `hermes-operator-v4-preview.service` ;
-- `ngrok-hermes-operator-dev.service` ;
-- `cloudflared-hermes-webui.service` et un doublon `cloudflared.service` ;
-- trois conteneurs Hermes ;
-- route Grafana sans backend actif ;
-- anciens arbres `/opt/hermes-*` et `/root/.hermes`.
+- `hermes-gateway.service`, `hermes-operator-ui.service` et `hermes-operator-v4-preview.service` sont arrêtés, désactivés et retirés de systemd ;
+- `ngrok-hermes-operator-dev.service`, `cloudflared-hermes-webui.service` et le doublon `cloudflared.service` sont arrêtés, désactivés et retirés ;
+- les conteneurs, images et réseaux Docker Hermes sont supprimés ;
+- les routes Grafana, chat et Hermes ont été retirées de Caddy ;
+- les unités système, l’unité utilisateur root et le superviseur PM2 Hermes sont supprimés ;
+- les anciens arbres `/opt/hermes-*`, `/opt/agentic-os/hermes*`, `/root/.hermes`, les worktrees/sources root et Grafana sont supprimés ;
+- plusieurs gigaoctets ont été libérés ; aucune donnée Hermes n’était à conserver selon le propriétaire.
 
-### 5.4 Risques P0
+### 5.4 État sécurité après Phase 0
 
-- Pare-feu hôte inactif et politique INPUT permissive.
-- Orbit écoute sur `0.0.0.0:4173` au lieu de loopback.
-- Hermes Control Interface publie `0.0.0.0:10275`.
-- Plusieurs tunnels concurrents rendent le chemin public difficile à auditer.
-- Des secrets de tunnel sont intégrés en clair dans des unités systemd ; ils devront être révoqués, recréés et déplacés dans des fichiers `EnvironmentFile` en mode `0600`.
-- Le tunnel ngrok principal est un processus de session utilisateur, pas une unité système de production clairement gérée.
+- Orbit et Caddy écoutent uniquement sur loopback ; Hermes Control ne publie plus `10275`.
+- Le tunnel ngrok principal est une unité systemd unique, activée au boot, avec configuration root en mode `0600`.
+- Les unités legacy qui contenaient des références de tunnel et leurs copies temporaires de rollback ont été supprimées du VPS.
+- La révocation distante des anciens tokens Cloudflare/ngrok reste à confirmer depuis les comptes fournisseurs ; aucune valeur de token n’est stockée dans Git.
+- Le pare-feu hôte reste inactif et la politique INPUT permissive. La surface TCP observée est néanmoins limitée à SSH, Caddy/Orbit en loopback et les services système documentés ; l’activation d’un pare-feu devra préserver SSH et Tailscale.
 
 ## 6. Décisions d’architecture retenues
 
@@ -195,7 +196,7 @@ Un second tunnel Cloudflare éphémère pointe aussi directement vers Orbit. Deu
 7. Recherche, lecture et paper trading sont autonomes dans les budgets définis.
 8. Dépense IA inhabituelle, changement d’infrastructure risqué et live trading passent par une politique explicite et la Human Inbox.
 9. Codex ne fait pas partie des agents de trading : il reste réservé au développement d’Orbit.
-10. Hermes et Grafana sont retirés seulement après bascule du proxy et vérification de rollback.
+10. Hermes et Grafana ont été retirés après bascule du proxy, test de restart et vérification du rollback Orbit.
 
 ## 7. Cible logique
 
@@ -222,4 +223,3 @@ Stockage
   ├─ volume runtime Vibe
   └─ ledger append-only + checksums
 ```
-
