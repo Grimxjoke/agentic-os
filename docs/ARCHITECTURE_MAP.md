@@ -1,12 +1,12 @@
 # Orbit OS — cartographie de l’existant
 
-État observé le 16 juillet 2026, actualisé avec le control-plane Phase 1. Cette carte décrit ce qui existe réellement, ce qui est simulé et ce qui peut être réutilisé. Elle ne constitue pas une promesse fonctionnelle.
+État observé le 17 juillet 2026, actualisé avec le moteur Vibe de Phase 2. Cette carte décrit ce qui existe réellement, ce qui est simulé et ce qui peut être réutilisé. Elle ne constitue pas une promesse fonctionnelle.
 
 ## 1. Résumé exécutif
 
 Orbit possède désormais un premier noyau serveur persistant : sessions d’accès révocables, conversations PI/Codex, jobs, événements, décisions, audit, migrations et sauvegardes SQLite. La page System et le chat lisent ces données réelles. Les autres surfaces métier restent majoritairement alimentées par des constantes ou `localStorage` et doivent encore être remplacées phase par phase.
 
-Vibe-Trading est à l’inverse un moteur de recherche quantitative complet : sessions persistantes, outils de marché, backtests, validation, hypothèses, swarms multi-agents, connecteurs brokers et garde-fous live. Son dépôt est présent sur le VPS mais il n’est ni installé, ni configuré, ni démarré. Il ne contient encore aucune donnée utilisateur.
+Vibe-Trading est désormais installé comme moteur privé épinglé, isolé et persistant. Orbit expose une frontière BFF allowlistée pour sa santé, ses sessions, son chat SSE, ses skills, ses presets, ses uploads et ses runs. Le provider `openai-codex` est autorisé via l’abonnement ChatGPT/Codex, sans clé API, et une première recherche réelle avec streaming a été validée.
 
 Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Déclaré obsolète et supprimable par le propriétaire, il a été retiré transactionnellement après la bascule et le test de redémarrage du chemin public Orbit.
 
@@ -14,8 +14,10 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 
 | Emplacement | État | Rôle futur |
 |---|---|---|
-| `/home/codex/agentic-os` | dépôt Git public, Phase 0 sur `main`, Phase 1 sur branche dédiée | source de vérité Orbit |
-| `/root/Vibe-Trading` | dépôt upstream propre, commit `66ceb74` | dépendance moteur, version à épingler et déployer sous un utilisateur non-root |
+| `/home/codex/agentic-os` | dépôt Git public, Phase 1 sur `main`, Phase 2 sur branche dédiée | source de vérité Orbit |
+| `/opt/vibe-trading` | release upstream `86f6012e…` et virtualenv épinglés | moteur Vibe de production, code root-owned |
+| `/var/lib/vibe-trading` | HOME et runtime privés de `vibe-trading` | sessions, OAuth, mémoire, runs, uploads et artifacts durables |
+| `/root/Vibe-Trading` | dépôt upstream d’audit, non exécuté | inspection et comparaison amont uniquement |
 | `/home/codex/Agentic OS` | dépôt presque vide | doublon à retirer après vérification |
 | `/opt/agentic-os` | Caddy, MCP et infrastructure non-Hermes conservés ; arbres Hermes/Grafana supprimés | conserver l’infrastructure utile à Orbit |
 | `/opt/hermes-*`, `/root/.hermes` | supprimés après bascule, restart et validation publique | aucun rôle futur |
@@ -30,7 +32,7 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 - Le jeton permanent initialise une session opaque de 30 jours ; seul son hash SHA-256 est conservé et la session est révocable.
 - Build statique servi sous `/orbit/`.
 - Service systemd `orbit-os.service`, lié uniquement à `127.0.0.1:4173` et durci par sandbox systemd.
-- Dix-huit tests unitaires et d’intégration couvrent migrations, transactions, crash/reprise, repositories, policies, redaction, sauvegarde, probes, authentification, révocation, origine, conversations, fallback Codex et routes statiques. Il n’existe pas encore de test end-to-end navigateur automatisé.
+- Vingt-six tests Orbit couvrent aussi la frontière Vibe, son allowlist, les limites, la redaction et le relais SSE. Il n’existe pas encore de test end-to-end navigateur automatisé.
 
 ### 3.2 Matrice réel / local / simulé
 
@@ -39,14 +41,14 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 | PI Chat | appel réel au CLI PI, conversation/messages/job persistés, outils en lecture seule | remplacer plus tard par un runtime d’orchestration observable |
 | Codex Chat | appel réel isolé, conversation persistée et récupération des rollouts disparus | conserver uniquement comme atelier de modification du dashboard |
 | Agents | CRUD `localStorage`, modèles et outils codés en dur | registre réel des agents Vibe, profils, budgets et politiques |
-| Skills | CRUD et test simulé en `localStorage` | catalogue réel des 77 skills Vibe et skills Orbit |
+| Skills | page globale encore locale ; catalogue réel de 87 skills visible dans le cockpit Vibe | unifier skills Vibe et Orbit avec policies |
 | Cron | éditeur visuel local, proposition PI déterministe par mots-clés | workflows persistants réellement exécutés et repris après redémarrage |
 | Kanban | cartes locales déplaçables | vue dérivée des objectifs, expériences, décisions et incidents |
 | Files | quatre faux fichiers édités dans le navigateur | explorateur borné du VPS, versions, uploads et artifacts réels |
 | Knowledge | graphe statique | index des stratégies, runs, hypothèses, agents, fichiers et mémoires |
 | Memory | quatre entrées locales | mémoire Vibe durable avec provenance, correction et recherche |
 | Artifacts | liste statique | rapports, code, métriques, journaux et exports réels |
-| Vibe | guide documentaire simulé et données obsolètes | cockpit natif du moteur Vibe via API/SSE |
+| Vibe | cockpit réel : santé/provider, sessions, messages, SSE, 87 skills, 30 presets, uploads et runs | étendre les détails d’artifacts en Phase 3/4 |
 | Trading | données codées en dur, TradingView externe uniquement | paper trading, comptes, positions, ordres, risques et live borné |
 | Switchboard | topologie locale modifiable | état réel des services et connexions, sans faux interrupteurs |
 | System | santé Orbit/SQLite/PI/Codex/Vibe, métriques et sauvegarde réelles | étendre avec diagnostics et actions strictement allowlistées |
@@ -89,19 +91,20 @@ Limites :
 
 ### 4.1 État de déploiement
 
-- Dépôt upstream propre et non modifié.
-- Aucun `.env`, aucune clé provider, aucune clé marché, aucun jeton Tushare.
-- Aucun répertoire runtime `~/.vibe-trading`.
-- Aucune session, aucun run, aucun swarm, aucune hypothèse et aucun mandat existant.
-- Aucun service sur `127.0.0.1:8899`.
-- Le dépôt se trouve sous `/root`, donc il est inaccessible au service Orbit exécuté par `codex`.
+- Révision upstream exacte `86f6012e00120e3fa5c3f0e15be8c94abe732dcf`, installée depuis le lockfile avec hashes.
+- Utilisateur système `vibe-trading`, code root-owned, HOME/runtime privé.
+- Service systemd durci, actif et lié uniquement à `127.0.0.1:8899`.
+- Provider `openai-codex`, modèle `openai-codex/gpt-5.4`, sans `OPENAI_API_KEY`.
+- OAuth autorisé : `/health` et `/ready` répondent 200 ; le smoke test réel a retourné `VIBE_PHASE_2_OK` via Orbit et SSE.
+- Outils shell et scheduler désactivés ; aucun broker ni live trading configuré.
+- Persistance validée par création, restart, relecture puis suppression d’une session de probe.
 
 ### 4.2 Capacités réutilisables
 
 - API FastAPI avec authentification distante et SSE.
 - Sessions et messages durables, écritures `flush + fsync`.
-- 77 skills finance répartis entre données, recherche, quant, risque, reporting et exécution.
-- 29 presets de swarms multi-agents.
+- 87 skills finance réellement retournés par l’API déployée.
+- 30 presets de swarms multi-agents réellement retournés par l’API déployée.
 - DAG : tâches parallèles par couche, dépendances entre couches, retries, timeout, annulation, reprise et réconciliation des runs abandonnés.
 - Comptage des tokens par worker et au niveau du swarm.
 - Artifacts isolés par run et par agent.
@@ -114,16 +117,17 @@ Limites :
 
 ### 4.3 Persistance Vibe
 
-Le runtime par défaut est `~/.vibe-trading` :
+Le runtime déployé est réparti explicitement sous `/var/lib/vibe-trading` :
 
-- `sessions/<id>/session.json`, `messages.jsonl`, `attempts/` ;
+- `.vibe-trading/sessions.db` et son WAL pour les sessions/messages ;
 - `memory/MEMORY.md` et entrées Markdown ;
 - `hypotheses.json` ;
-- runs de backtest et rapports ;
+- `runtime/runs`, `runtime/sessions` et `runtime/uploads` reliés aux chemins natifs du moteur ;
+- `runtime/swarm-runs` pour les équipes multi-agents ;
 - `live/<broker>/mandate.json`, consentements, compteur journalier et HALT ;
 - `live/audit.jsonl`, journal append-only des actions live.
 
-Les swarms utilisent actuellement un autre root relatif, `agent/.swarm/runs`. Ce chemin devra être rendu explicite et déplacé dans le volume runtime canonique avant la production.
+Les chemins relatifs amont sont reliés au runtime canonique par l’installeur idempotent ; une mise à jour de code ne remplace donc aucune donnée.
 
 ### 4.4 Sécurité live déjà disponible
 

@@ -27,12 +27,14 @@ function tcpAvailable(port, host = "127.0.0.1", timeout = 250) {
   });
 }
 
-export function createSystemService({ db, databasePath, dataDirectory, store, version }) {
+export function createSystemService({ db, databasePath, dataDirectory, store, version, vibeClient }) {
   async function overview() {
-    const [piAvailable, codexAvailable, vibeAvailable, bytes] = await Promise.all([
+    const [piAvailable, codexAvailable, vibeState, bytes] = await Promise.all([
       executableAvailable("/usr/local/bin/pi"),
       executableAvailable("/usr/local/bin/codex"),
-      tcpAvailable(8899),
+      vibeClient
+        ? vibeClient.overview().catch(() => ({ engine: "offline", ready: false, reason: "API locale indisponible" }))
+        : tcpAvailable(8899).then((available) => ({ engine: available ? "online" : "offline", ready: available })),
       databaseSize(databasePath),
     ]);
     const memory = process.memoryUsage();
@@ -56,7 +58,12 @@ export function createSystemService({ db, databasePath, dataDirectory, store, ve
         { id: "database", name: "SQLite", status: "operational", detail: `Schéma v${schemaVersion(db)}` },
         { id: "pi", name: "PI Runtime", status: piAvailable ? "available" : "unavailable", detail: piAvailable ? "CLI détecté · lecture seule" : "CLI introuvable" },
         { id: "codex", name: "Codex Bridge", status: codexAvailable ? "available" : "unavailable", detail: codexAvailable ? "CLI détecté · sandbox systemd" : "CLI introuvable" },
-        { id: "vibe", name: "Vibe-Trading", status: vibeAvailable ? "available" : "deferred", detail: vibeAvailable ? "API locale détectée" : "Phase ultérieure · port fermé" },
+        {
+          id: "vibe",
+          name: "Vibe-Trading",
+          status: vibeState.engine === "online" ? (vibeState.ready ? "operational" : "degraded") : "unavailable",
+          detail: vibeState.engine === "online" ? (vibeState.ready ? "Moteur et provider prêts" : vibeState.reason || "Provider non prêt") : "API locale indisponible",
+        },
       ],
       activity: store.recentActivity(12),
     };

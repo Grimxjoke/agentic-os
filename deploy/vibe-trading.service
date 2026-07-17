@@ -1,0 +1,42 @@
+[Unit]
+Description=Vibe-Trading private research engine
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vibe-trading
+Group=vibe-trading
+WorkingDirectory=/opt/vibe-trading/current/agent
+Environment=HOME=/var/lib/vibe-trading
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/vibe-trading/vibe.env
+ExecStart=/opt/vibe-trading/venv/bin/vibe-trading serve --host 127.0.0.1 --port 8899
+Restart=on-failure
+RestartSec=4
+TimeoutStopSec=30
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+ReadWritePaths=/var/lib/vibe-trading
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

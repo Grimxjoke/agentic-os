@@ -11,6 +11,7 @@ import { parseAgent, parseChatInput, parseConversationInput, ValidationError } f
 import { redact } from "./security.mjs";
 import { ControlPlaneStore } from "./store.mjs";
 import { createSystemService } from "./system.mjs";
+import { createVibeApiHandler, createVibeClient } from "./vibe.mjs";
 
 function errorResponse(res, error, fallbackStatus = 500) {
   const validation = error instanceof ValidationError;
@@ -35,7 +36,9 @@ export async function createOrbitApplication(overrides = {}) {
   store.reconcileStaleJobs();
   const auth = createAuth({ accessToken: config.accessToken, store });
   const runtimes = config.runtimes || createRuntimeBridge({ workspace: config.workspace });
-  const system = createSystemService({ db, databasePath, dataDirectory, store, version: packageJson.version });
+  const vibe = config.vibeClient || createVibeClient({ baseUrl: config.vibeBaseUrl, apiKey: config.vibeApiKey });
+  const system = createSystemService({ db, databasePath, dataDirectory, store, version: packageJson.version, vibeClient: vibe });
+  const handleVibe = createVibeApiHandler(vibe);
   const activeAgents = new Set();
 
   let vite;
@@ -46,6 +49,8 @@ export async function createOrbitApplication(overrides = {}) {
 
   async function handleApi(req, res, url, authContext) {
     if (req.method !== "GET" && !sameOrigin(req)) return json(res, 403, { error: "Origine refusée", code: "origin_denied" });
+
+    if (url.pathname.startsWith("/api/vibe/")) return handleVibe(req, res, url);
 
     if (req.method === "GET" && url.pathname === "/api/health") {
       return json(res, 200, { ok: true, status: "operational", agents: { pi: "read-only", codex: "sandboxed" } });
