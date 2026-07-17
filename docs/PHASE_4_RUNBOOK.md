@@ -4,6 +4,8 @@
 
 The default root is `ORBIT_WORKSPACE`, exposed as `workspace`. Additional roots must be added in trusted server configuration; they cannot be supplied by an HTTP request.
 
+The systemd sandbox must list each writable root in `ReadWritePaths`. The supplied unit allows `/home/codex/agentic-os`; blocked directories and editable extensions are still enforced by the application boundary.
+
 Canonical data:
 
 - SQLite: `$ORBIT_DATA_DIR/orbit.sqlite`
