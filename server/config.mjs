@@ -12,6 +12,8 @@ export function loadConfig(overrides = {}) {
     host: process.env.HOST || "127.0.0.1",
     isDev: process.argv.includes("--dev"),
     accessToken: process.env.ORBIT_ACCESS_TOKEN || randomBytes(32).toString("base64url"),
+    vibeBaseUrl: process.env.VIBE_BASE_URL || "http://127.0.0.1:8899",
+    vibeApiKey: process.env.VIBE_API_KEY || "",
     basePath: "/orbit",
     ...overrides,
   };
