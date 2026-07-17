@@ -8,7 +8,7 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
 [![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![SQLite WAL](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![Phase 3 en cours](https://img.shields.io/badge/roadmap-Phase_3_en_cours-18c8c8)](#roadmap)
+[![Phase 3 validée](https://img.shields.io/badge/roadmap-Phase_3_valid%C3%A9e-18c8c8)](#roadmap)
 
 [Vision](#vision) · [Fonctionnalités](#fonctionnalités-disponibles) · [Architecture](#architecture) · [Démarrage](#démarrage-local) · [Roadmap](#roadmap) · [Documentation](#documentation)
 
@@ -47,6 +47,15 @@ Le projet suit trois principes simples :
 - catalogue réel de **87 skills** et **30 presets** sur la révision validée ;
 - uploads et artifacts exposés uniquement par des contrats allowlistés ;
 - annulation, reconnexion et erreurs expurgées.
+
+### Agent Lab et Runs
+
+- agents et équipes versionnés avec historique immuable ;
+- éditeur de DAG, validation des cycles et concurrence bornée à deux workers ;
+- snapshots exacts des définitions exécutées ;
+- orchestration Vibe durable avec cancel, retry et reprise après restart ;
+- timeline SSE reprenable, usage provider et artifacts référencés ;
+- Observatory et Activity alimentés par les données persistantes réelles.
 
 ### Interface
 
@@ -142,6 +151,9 @@ La Phase 2 a été validée le **17 juillet 2026** avec :
 - les probes internes et publiques au vert ;
 - un scan du code, du diff, des logs et de l’historique Git sans secret détecté.
 
+La Phase 3 ajoute un build réussi et **37 tests Orbit** couvrant notamment DAG,
+concurrence, budgets, policies, cancel, retry, reprise, SSE et orchestration Vibe.
+
 ## Roadmap
 
 | Phase | Statut | Résultat |
@@ -149,7 +161,7 @@ La Phase 2 a été validée le **17 juillet 2026** avec :
 | 0 · Baseline et réseau | ✅ Validée | exposition réduite, auth et restart éprouvés |
 | 1 · Control plane persistant | ✅ Validée | SQLite, migrations, jobs, audit et sauvegardes |
 | 2 · Vibe réel | ✅ Validée | moteur privé, OAuth, sessions, SSE et artifacts |
-| 3 · Agent Lab & Runs | 🚧 En cours | agents versionnés, équipes DAG et runs observables |
+| 3 · Agent Lab & Runs | ✅ Validée | agents versionnés, équipes DAG et runs observables |
 | 4 · Files, Memory, Knowledge | ⏳ Planifiée | fichiers bornés, provenance et graphe dérivé |
 | 5 · Strategy Factory | ⏳ Planifiée | backtests reproductibles et validations statistiques |
 | 6 · Experiment Studio | ⏳ Planifiée | générations, candidats et champion/challenger |
@@ -191,6 +203,7 @@ Pour signaler une vulnérabilité, évitez une issue publique contenant des dét
 - [Runbook Phase 2](docs/PHASE_2_RUNBOOK.md)
 - [PRD Phase 3](docs/PHASE_3_PRD.md)
 - [Plan Phase 3](docs/PHASE_3_PLAN.md)
+- [Runbook Phase 3](docs/PHASE_3_RUNBOOK.md)
 - [Runbook Phase 0](docs/PHASE_0_RUNBOOK.md)
 
 ## Contribution

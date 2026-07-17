@@ -19,6 +19,7 @@ const navigation = [
   ]},
   { group: "Orchestration", items: [
     { to: "/agents", label: "Agents", icon: Bot },
+    { to: "/runs", label: "Teams & Runs", icon: Workflow },
     { to: "/skills", label: "Skills", icon: WandSparkles },
     { to: "/cron", label: "Cron Jobs", icon: Timer },
     { to: "/kanban", label: "Kanban", icon: Columns3 },

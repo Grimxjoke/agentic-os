@@ -143,10 +143,10 @@ Validation réalisée :
 
 ### Phase 3 — Agent Lab et Runs
 
-État au 17 juillet 2026 : démarrée. La première tranche verticale (registre
-d’agents SQLite, versions immuables, budgets/policies, API et Agent Lab réel) est
-implémentée et validée localement. Les équipes DAG et l’orchestrateur de runs
-restent à construire.
+État au 17 juillet 2026 : implémentation et validation terminées. Agents et
+équipes sont versionnés, les DAG sont validés, les runs Vibe sont persistants et
+observables, et cancel/retry/reprise sont couverts. Observatory lit les mêmes
+données canoniques. Build et 37 tests sont verts.
 
 Livrables :
 

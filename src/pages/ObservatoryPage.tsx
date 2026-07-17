@@ -1,128 +1,54 @@
-import { ArrowUpRight, Bot, Check, Clock3, Command, Cpu, Eye, EyeOff, FileText, Gauge, MoreHorizontal, Network, Play, Radio, RotateCcw, Settings2, Sparkles, Zap } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Activity, ArrowUpRight, Bot, CircleAlert, CircleDollarSign, Command, Gauge, Network, Play, RefreshCw, Sparkles, Users, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { PageHeader } from "../components/PageHeader";
-import { activity, initialAgents, missions } from "../data/mockData";
-import { useLocalStorage } from "../hooks/useLocalStorage";
-import { useNavigate } from "react-router-dom";
+import { api } from "../lib/api";
+import type { Observatory } from "../types";
 
-type WidgetKey = "brief" | "metrics" | "agents" | "mission" | "activity";
-
-const widgetLabels: Record<WidgetKey, string> = {
-  brief: "Brief de Pi",
-  metrics: "Métriques",
-  agents: "Agents au travail",
-  mission: "Mission principale",
-  activity: "Activité récente",
-};
-
-const defaultWidgets: Record<WidgetKey, boolean> = {
-  brief: true,
-  metrics: true,
-  agents: true,
-  mission: true,
-  activity: true,
-};
+function statusLabel(status: string) {
+  return ({ queued: "En file", running: "En cours", degraded: "Dégradé", completed: "Terminé", failed: "Échec", cancelled: "Annulé" } as Record<string, string>)[status] || status;
+}
 
 export function ObservatoryPage() {
   const navigate = useNavigate();
-  const activeAgents = initialAgents.filter((agent) => agent.status === "active");
-  const [customizing, setCustomizing] = useLocalStorage("pi-os-observatory-customizing", false);
-  const [widgets, setWidgets] = useLocalStorage<Record<WidgetKey, boolean>>("pi-os-observatory-widgets", defaultWidgets);
-  const toggleWidget = (key: WidgetKey) => setWidgets({ ...widgets, [key]: !widgets[key] });
+  const [data, setData] = useState<Observatory | null>(null);
+  const [error, setError] = useState("");
+  const load = useCallback(() => api<{ observatory: Observatory }>("/observatory")
+    .then((result) => { setData(result.observatory); setError(""); })
+    .catch((cause) => setError(cause instanceof Error ? cause.message : "Observatory indisponible")), []);
+  useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 5_000); return () => window.clearInterval(timer); }, [load]);
 
-  return (
-    <div className="page observatory-page">
-      <PageHeader
-        eyebrow="Système nominal · 15 juillet 2026"
-        title="Bonjour, Paul."
-        description="Votre intelligence locale est en orbite. Voici ce qui mérite votre attention aujourd'hui."
-        actions={<><button className={"button secondary " + (customizing ? "active" : "")} onClick={() => setCustomizing(!customizing)}><Settings2 size={15} />Personnaliser</button><button className="button secondary"><Play size={15} />Lancer un cycle</button><button className="button primary" onClick={() => navigate("/chat/pi")}><Sparkles size={15} />Parler à Pi</button></>}
-      />
+  const activeRuns = (data?.statuses.running || 0) + (data?.statuses.queued || 0) + (data?.statuses.degraded || 0);
+  return <div className="page observatory-page observatory-real-page">
+    <PageHeader eyebrow={data ? `Télémétrie réelle · ${new Date(data.generatedAt).toLocaleString("fr-FR")}` : "Synchronisation du control-plane"} title="Observatory" description="Une vue calculée depuis les agents, équipes, runs et événements persistés — sans données métier simulées." actions={<><button className="button secondary" onClick={() => void load()}><RefreshCw size={14} />Actualiser</button><button className="button primary" onClick={() => navigate("/runs")}><Play size={14} />Nouveau run</button></>} />
+    {error && <div className="agent-alert"><CircleAlert size={14} />{error}</div>}
 
-      <section className="orbital-launchpad reveal">
-        <button onClick={() => navigate("/chat/pi")}><span className="tone-cyan"><Bot size={16} /></span><span><strong>Pi Chat</strong><small>Orchestrer et déléguer</small></span><em><i />ONLINE</em></button>
-        <button onClick={() => navigate("/chat/codex")}><span className="tone-violet"><Command size={16} /></span><span><strong>Codex Chat</strong><small>Planifier et construire</small></span><em><i />READY</em></button>
-        <button onClick={() => navigate("/vibe")}><span className="tone-amber"><Zap size={16} /></span><span><strong>Vibe Cockpit</strong><small>Docs, skills et repo chat</small></span><em>LAB</em></button>
-        <button onClick={() => navigate("/switchboard")}><span className="tone-rose"><Network size={16} /></span><span><strong>Switchboard</strong><small>7 connexions visibles</small></span><em><i />NOMINAL</em></button>
-        <button onClick={() => navigate("/control")}><span className="tone-cyan"><Gauge size={16} /></span><span><strong>Control Center</strong><small>Services, logs et config</small></span><em><Radio size={11} />LIVE</em></button>
-      </section>
+    <section className="orbital-launchpad reveal">
+      <button onClick={() => navigate("/chat/pi")}><span className="tone-cyan"><Bot size={16} /></span><span><strong>Pi Chat</strong><small>Orchestration générale</small></span><em>OUVRIR</em></button>
+      <button onClick={() => navigate("/chat/codex")}><span className="tone-violet"><Command size={16} /></span><span><strong>Codex Chat</strong><small>Build et vérification</small></span><em>OUVRIR</em></button>
+      <button onClick={() => navigate("/vibe")}><span className="tone-amber"><Zap size={16} /></span><span><strong>Vibe Engine</strong><small>Exécuteur privé</small></span><em>PRIVÉ</em></button>
+      <button onClick={() => navigate("/runs")}><span className="tone-rose"><Network size={16} /></span><span><strong>Teams & Runs</strong><small>{data?.teams ?? "—"} équipes versionnées</small></span><em>{activeRuns} ACTIF(S)</em></button>
+      <button onClick={() => navigate("/control")}><span className="tone-cyan"><Gauge size={16} /></span><span><strong>Control Center</strong><small>Santé et backups</small></span><em>MESURÉ</em></button>
+    </section>
 
-      {customizing && (
-        <section className="observatory-customizer glass-panel reveal">
-          <div><Settings2 size={16} /><span><strong>Composer l'Observatoire</strong><small>Choisissez les informations visibles. Votre disposition reste enregistrée localement.</small></span></div>
-          <div className="widget-toggles">
-            {(Object.keys(widgetLabels) as WidgetKey[]).map((key) => (
-              <button className={widgets[key] ? "active" : ""} key={key} onClick={() => toggleWidget(key)}>{widgets[key] ? <Eye size={13} /> : <EyeOff size={13} />}{widgetLabels[key]}</button>
-            ))}
-            <button onClick={() => setWidgets(defaultWidgets)}><RotateCcw size={13} />Réinitialiser</button>
-          </div>
-        </section>
-      )}
+    <section className="metric-grid reveal delay-1">
+      <article className="metric-card"><div className="metric-icon cyan"><Bot size={18} /></div><div><p>Agents persistants</p><strong>{data?.agents ?? "—"}</strong><span>Définitions versionnées</span></div></article>
+      <article className="metric-card"><div className="metric-icon violet"><Users size={18} /></div><div><p>Équipes DAG</p><strong>{data?.teams ?? "—"}</strong><span>Concurrence bornée à 2</span></div></article>
+      <article className="metric-card"><div className="metric-icon rose"><Activity size={18} /></div><div><p>Runs actifs</p><strong>{data ? activeRuns : "—"}</strong><span>{data?.statuses.completed || 0} terminés</span></div></article>
+      <article className="metric-card"><div className="metric-icon amber"><Sparkles size={18} /></div><div><p>Taux de succès</p><strong>{data?.successRate == null ? "—" : `${data.successRate}%`}</strong><span>Runs terminaux uniquement</span></div></article>
+    </section>
 
-      <section className={"hero-grid reveal delay-1 " + (!widgets.brief ? "single" : "")}>
-        <article className="command-card glass-panel">
-          <div className="command-card-copy">
-            <div className="live-label"><span className="pulse-dot" /> Intelligence en cours</div>
-            <h2>Pi orchestre votre<br /><span>espace de travail.</span></h2>
-            <p>Deux agents analysent le workspace pendant que la mémoire locale consolide les changements.</p>
-            <div className="command-actions"><button className="button primary">Voir la mission <ArrowUpRight size={15} /></button><button className="button ghost"><MoreHorizontal size={17} /></button></div>
-          </div>
-          <div className="orbit-visual" aria-label="Hiérarchie active des agents">
-            <div className="orbit-ring orbit-ring-one" />
-            <div className="orbit-ring orbit-ring-two" />
-            <div className="orbit-core"><div className="core-glow" /><Bot size={26} /><small>PI CORE</small></div>
-            <div className="orbit-node node-atlas"><Avatar name="Atlas" color="violet" size="sm" /><span>Atlas</span></div>
-            <div className="orbit-node node-muse"><Avatar name="Muse" color="rose" size="sm" /><span>Muse</span></div>
-            <div className="orbit-node node-index"><Cpu size={14} /><span>Indexer</span></div>
-          </div>
-        </article>
+    <section className="observatory-real-grid reveal delay-2">
+      <article className="glass-panel observatory-workers"><div className="panel-heading"><div><p className="section-kicker">Live workers</p><h3>Agents au travail</h3></div><button className="text-button" onClick={() => navigate("/runs")}>Voir les runs <ArrowUpRight size={13} /></button></div><div className="agent-run-list">{data?.activeWorkers.map((worker) => <button className="agent-run" key={worker.id} onClick={() => navigate("/runs")}><Avatar name={worker.agentName} color={worker.color} /><div className="agent-run-main"><div><strong>{worker.agentName}</strong><span>{worker.nodeKey} · {worker.objective}</span></div></div><div className="agent-run-value"><strong>LIVE</strong><span>{worker.startedAt ? new Date(worker.startedAt).toLocaleTimeString("fr-FR") : "—"}</span></div></button>)}{data && !data.activeWorkers.length && <Empty label="Aucun worker en cours." />}{!data && <Empty label="Synchronisation…" />}</div></article>
 
-        {widgets.brief && <article className="morning-card glass-panel">
-          <div className="panel-heading"><div><p className="eyebrow"><span />Morning brief</p><h3>La synthèse de Pi</h3></div><button className="icon-button"><ArrowUpRight size={16} /></button></div>
-          <p className="brief-lead">“La structure est claire. Le meilleur prochain mouvement est de stabiliser les rôles agents avant d'automatiser.”</p>
-          <div className="brief-points">
-            <div><span className="point-icon cyan"><Check size={13} /></span><p><strong>28 dépendances cartographiées</strong><small>Atlas a terminé l'analyse du frontend.</small></p></div>
-            <div><span className="point-icon violet"><Zap size={13} /></span><p><strong>Une décision recommandée</strong><small>Valider la hiérarchie des agents.</small></p></div>
-            <div><span className="point-icon amber"><Clock3 size={13} /></span><p><strong>2 automatisations planifiées</strong><small>Le prochain cycle démarre à 23:00.</small></p></div>
-          </div>
-          <button className="text-button">Ouvrir le brief complet <ArrowUpRight size={14} /></button>
-        </article>}
-      </section>
+      <article className="glass-panel observatory-usage"><div className="panel-heading"><div><p className="section-kicker">Measured usage</p><h3>Consommation des runs</h3></div><CircleDollarSign size={16} /></div><div className="observatory-usage-values"><div><span>Tokens remontés</span><strong>{data?.usage.tokens == null ? "—" : data.usage.tokens.toLocaleString("fr-FR")}</strong></div><div><span>Coût remonté</span><strong>{data?.usage.costUsd == null ? "—" : `$${data.usage.costUsd.toFixed(4)}`}</strong></div></div><p>Une valeur « — » signifie que le provider n’a pas fourni la métrique ; elle n’est jamais remplacée par zéro.</p></article>
 
-      {widgets.metrics && <section className="metric-grid reveal delay-2">
-        <article className="metric-card"><div className="metric-icon cyan"><Bot size={18} /></div><div><p>Agents en ligne</p><strong>03 <small>/ 04</small></strong><span className="metric-delta">+1 cette semaine</span></div></article>
-        <article className="metric-card"><div className="metric-icon violet"><Zap size={18} /></div><div><p>Missions actives</p><strong>04</strong><span>2 progressent maintenant</span></div></article>
-        <article className="metric-card"><div className="metric-icon rose"><FileText size={18} /></div><div><p>Fichiers indexés</p><strong>142</strong><span>12 liens créés aujourd'hui</span></div></article>
-        <article className="metric-card"><div className="metric-icon amber"><Cpu size={18} /></div><div><p>Contexte utilisé</p><strong>34%</strong><span>128k tokens disponibles</span></div></article>
-      </section>}
+      <article className="glass-panel observatory-runs"><div className="panel-heading"><div><p className="section-kicker">Durable history</p><h3>Runs récents</h3></div></div><div>{data?.recentRuns.map((run) => <button key={run.id} onClick={() => navigate("/runs")}><i className={`run-status ${run.status}`} /><span><strong>{run.snapshot.team.name}</strong><small>{run.objective}</small></span><em>{statusLabel(run.status)}</em></button>)}{data && !data.recentRuns.length && <Empty label="Aucun run enregistré." />}</div></article>
 
-      {(widgets.agents || widgets.mission || widgets.activity) && <section className="dashboard-grid reveal delay-3">
-        {widgets.agents && <article className="glass-panel agents-now">
-          <div className="panel-heading"><div><p className="section-kicker">Temps réel</p><h3>Agents au travail</h3></div><button className="text-button">Tous les agents <ArrowUpRight size={14} /></button></div>
-          <div className="agent-run-list">
-            {activeAgents.map((agent) => (
-              <div className="agent-run" key={agent.id}>
-                <Avatar name={agent.name} color={agent.color} />
-                <div className="agent-run-main"><div><strong>{agent.name}</strong><span>{agent.task}</span></div><div className="mini-progress"><i style={{ width: `${agent.progress}%` }} /></div></div>
-                <div className="agent-run-value"><strong>{agent.progress}%</strong><span>en cours</span></div>
-              </div>
-            ))}
-            <div className="agent-run dormant"><Avatar name="Muse" color="rose" /><div className="agent-run-main"><div><strong>Muse</strong><span>En veille · prête à intervenir</span></div></div><span className="status-pill idle">Idle</span></div>
-          </div>
-        </article>}
-
-        {widgets.mission && <article className="glass-panel mission-focus">
-          <div className="panel-heading"><div><p className="section-kicker">Focus</p><h3>Mission principale</h3></div><span className="status-pill active">En cours</span></div>
-          <div className="mission-orbit"><span>64%</span><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="51" /><circle className="progress-circle" cx="60" cy="60" r="51" /></svg></div>
-          <h4>{missions[0].title}</h4><p>Définir l'expérience complète et les frontières du prototype frontend.</p>
-          <div className="mission-meta"><span><Avatar name="Pi Core" color="cyan" size="sm" /> Pi Core</span><span><Clock3 size={13} /> Aujourd'hui</span></div>
-        </article>}
-
-        {widgets.activity && <article className="glass-panel activity-panel">
-          <div className="panel-heading"><div><p className="section-kicker">Flux système</p><h3>Activité récente</h3></div><button className="icon-button"><MoreHorizontal size={16} /></button></div>
-          <div className="activity-list">{activity.map((item) => <div className="activity-row" key={item.time + item.agent}><span className={`activity-dot tone-${item.tone}`} /><div><p><strong>{item.agent}</strong> {item.text}</p><small>{item.time}</small></div></div>)}</div>
-        </article>}
-      </section>}
-    </div>
-  );
+      <article className="glass-panel observatory-events"><div className="panel-heading"><div><p className="section-kicker">Control-plane</p><h3>Activité persistée</h3></div><button className="text-button" onClick={() => navigate("/activity")}>Ledger <ArrowUpRight size={13} /></button></div><div>{data?.activity.map((event) => <article key={event.id}><i className={event.level} /><span><strong>{event.message}</strong><small>{event.type} · {new Date(event.createdAt).toLocaleString("fr-FR")}</small></span></article>)}{data && !data.activity.length && <Empty label="Aucun événement." />}</div></article>
+    </section>
+  </div>;
 }
+
+function Empty({ label }: { label: string }) { return <div className="observatory-empty"><Activity size={17} /><span>{label}</span></div>; }

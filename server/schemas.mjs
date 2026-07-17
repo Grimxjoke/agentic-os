@@ -43,6 +43,41 @@ function choice(value, name, choices) {
   return value;
 }
 
+function identifier(value, name) {
+  const id = string(value, name, { max: 64 });
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new ValidationError(`${name} invalide`);
+  return id;
+}
+
+function nodeKey(value, name = "Clé du nœud") {
+  const key = string(value, name, { max: 48 }).toLowerCase();
+  if (!/^[a-z][a-z0-9_-]*$/.test(key)) throw new ValidationError(`${name} invalide`);
+  return key;
+}
+
+function validateDag(nodes) {
+  const keys = new Set(nodes.map((node) => node.key));
+  if (keys.size !== nodes.length) throw new ValidationError("Les clés des nœuds doivent être uniques", "duplicate_node");
+  for (const node of nodes) {
+    for (const dependency of node.dependsOn) {
+      if (!keys.has(dependency)) throw new ValidationError(`Dépendance inconnue : ${dependency}`, "unknown_dependency");
+      if (dependency === node.key) throw new ValidationError("Un nœud ne peut pas dépendre de lui-même", "cyclic_team");
+    }
+  }
+  const visiting = new Set();
+  const visited = new Set();
+  const visit = (key) => {
+    if (visiting.has(key)) throw new ValidationError("Le DAG contient un cycle", "cyclic_team");
+    if (visited.has(key)) return;
+    visiting.add(key);
+    const node = nodes.find((candidate) => candidate.key === key);
+    for (const dependency of node.dependsOn) visit(dependency);
+    visiting.delete(key);
+    visited.add(key);
+  };
+  for (const node of nodes) visit(node.key);
+}
+
 export function parseChatInput(value) {
   const input = object(value);
   const agent = input.agent === "pi" || input.agent === "codex" ? input.agent : "";
@@ -93,5 +128,43 @@ export function parseAgentDefinitionInput(value) {
       trading: choice(policy.trading || "deny", "Policy trading", ["deny"]),
     },
     color: choice(input.color || "cyan", "Couleur", ["cyan", "violet", "rose", "amber"]),
+  };
+}
+
+export function parseTeamDefinitionInput(value) {
+  const input = object(value);
+  if (!Array.isArray(input.nodes) || input.nodes.length < 1 || input.nodes.length > 20) {
+    throw new ValidationError("Une équipe doit contenir entre 1 et 20 nœuds");
+  }
+  const nodes = input.nodes.map((candidate, index) => {
+    const node = object(candidate);
+    return {
+      key: nodeKey(node.key, `Clé du nœud ${index + 1}`),
+      label: string(node.label, `Nom du nœud ${index + 1}`, { max: 80 }),
+      agentVersionId: identifier(node.agentVersionId, `Version agent du nœud ${index + 1}`),
+      task: string(node.task, `Tâche du nœud ${index + 1}`, { max: 2_000 }),
+      dependsOn: [...new Set((Array.isArray(node.dependsOn) ? node.dependsOn : []).map((key) => nodeKey(key, "Dépendance")))],
+    };
+  });
+  validateDag(nodes);
+  const budget = input.budget === undefined ? {} : object(input.budget);
+  return {
+    name: string(input.name, "Nom de l’équipe", { min: 2, max: 100 }),
+    description: input.description ? string(input.description, "Description", { max: 1_000 }) : "",
+    maxConcurrency: boundedNumber(input.maxConcurrency ?? 2, "Concurrence", { min: 1, max: 2, integer: true }),
+    nodes,
+    budget: {
+      maxTokens: boundedNumber(budget.maxTokens ?? 1_000_000, "Budget équipe tokens", { min: 1_000, max: 20_000_000, integer: true }),
+      maxCostUsd: boundedNumber(budget.maxCostUsd ?? 0, "Budget équipe coût", { min: 0, max: 50_000 }),
+      maxDurationMinutes: boundedNumber(budget.maxDurationMinutes ?? 120, "Budget équipe durée", { min: 1, max: 1_440, integer: true }),
+    },
+  };
+}
+
+export function parseRunInput(value) {
+  const input = object(value);
+  return {
+    teamId: identifier(input.teamId, "Équipe"),
+    objective: string(input.objective, "Objectif", { max: 5_000 }),
   };
 }

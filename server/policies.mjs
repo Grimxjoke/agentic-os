@@ -4,6 +4,10 @@ const policies = Object.freeze({
   "database.backup": { risk: "B", allowed: true, confirmation: false },
   "session.revoke": { risk: "A", allowed: true, confirmation: false },
   "agents.write": { risk: "B", allowed: true, confirmation: false },
+  "teams.write": { risk: "B", allowed: true, confirmation: false },
+  "runs.start": { risk: "B", allowed: true, confirmation: false },
+  "runs.cancel": { risk: "B", allowed: true, confirmation: false },
+  "runs.retry": { risk: "B", allowed: true, confirmation: false },
   "service.control": { risk: "C", allowed: false, confirmation: true },
   "trading.live": { risk: "D", allowed: false, confirmation: true },
 });

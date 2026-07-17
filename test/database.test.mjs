@@ -17,15 +17,15 @@ async function temporaryDatabase() {
 test("migrations are idempotent on an empty and an existing database", async () => {
   const first = await temporaryDatabase();
   try {
-    assert.equal(schemaVersion(first.db), 2);
+    assert.equal(schemaVersion(first.db), 3);
     const tables = first.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all().map((row) => row.name);
-    for (const name of ["access_sessions", "agent_versions", "agents", "audit_entries", "conversations", "decisions", "events", "jobs", "messages", "schema_migrations"]) {
+    for (const name of ["access_sessions", "agent_versions", "agents", "audit_entries", "conversations", "decisions", "events", "jobs", "messages", "run_artifacts", "run_events", "run_workers", "runs", "schema_migrations", "team_versions", "teams"]) {
       assert.ok(tables.includes(name), `${name} should exist`);
     }
     first.db.close();
     const reopened = await openDatabase({ dataDirectory: first.directory });
-    assert.equal(schemaVersion(reopened.db), 2);
-    assert.equal(reopened.db.prepare("SELECT COUNT(*) count FROM schema_migrations").get().count, 2);
+    assert.equal(schemaVersion(reopened.db), 3);
+    assert.equal(reopened.db.prepare("SELECT COUNT(*) count FROM schema_migrations").get().count, 3);
     reopened.db.close();
   } finally {
     await rm(first.directory, { recursive: true, force: true });
@@ -157,6 +157,7 @@ test("session secrets are hashed and audit payloads are redacted", async () => {
     const payload = JSON.parse(safeJson({ api_key: "secret-value", nested: { authorization: "Bearer sk-project-secret" }, note: "safe" }));
     assert.deepEqual(payload, { api_key: "[REDACTED]", nested: { authorization: "[REDACTED]" }, note: "safe" });
     assert.equal(redact("Bearer sk-project-secret"), "[REDACTED]");
+    assert.equal(redact("11111111-1111-4111-8111-111111111111"), "11111111-1111-4111-8111-111111111111");
   } finally {
     opened.db.close();
     await rm(opened.directory, { recursive: true, force: true });

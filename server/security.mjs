@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 const sensitiveKey = /(^|_)(access_?token|session_?token|authorization|cookie|secret|password|api_?key|private_?key)($|_)/i;
-const bearerLike = /\b(?:bearer\s+)?(?:sk-[a-z0-9_-]{12,}|[a-z0-9_-]{32,})\b/gi;
+const bearerLike = /\b(?:bearer\s+[a-z0-9._~+/-]{12,}|sk-[a-z0-9_-]{12,}|(?![0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b)[a-z0-9_-]{32,})\b/gi;
 
 export function hashToken(token) {
   return createHash("sha256").update(String(token)).digest("hex");

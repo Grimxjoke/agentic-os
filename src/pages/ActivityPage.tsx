@@ -1,19 +1,21 @@
-import { Bot, CheckCircle2, Clock3, Code2, FileEdit, Filter, History, Play, Search, Timer, WandSparkles } from "lucide-react";
-import { Avatar } from "../components/Avatar";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Activity, CheckCircle2, CircleAlert, Filter, RefreshCw, Search } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
-
-const events = [
-  { time: "10:42:18", agent: "Atlas", color: "violet", action: "Architecture Map", detail: "28 dépendances cartographiées", target: "frontend/", icon: Code2, status: "success" },
-  { time: "10:38:04", agent: "Pi Core", color: "cyan", action: "Memory consolidation", detail: "4 décisions synchronisées", target: "Memory Inspector", icon: CheckCircle2, status: "success" },
-  { time: "10:31:52", agent: "Muse", color: "rose", action: "Visual Direction", detail: "Tokens de design vérifiés", target: "styles.css", icon: WandSparkles, status: "success" },
-  { time: "09:58:20", agent: "System", color: "cyan", action: "Cron · Workspace index", detail: "142 fichiers indexés", target: "Knowledge Graph", icon: Timer, status: "success" },
-  { time: "09:41:06", agent: "Pi Core", color: "cyan", action: "File update", detail: "Vision produit enrichie", target: "vision.md", icon: FileEdit, status: "success" },
-];
+import { api } from "../lib/api";
+import type { ActivityEvent } from "../types";
 
 export function ActivityPage() {
-  return <div className="page activity-page"><PageHeader eyebrow="Audit trail" title="Activity Ledger" description="Une chronologie lisible de tout ce que les agents, skills et cron jobs ont fait dans le système." actions={<button className="button secondary"><Play size={14} />Replay simulé</button>} />
-    <div className="toolbar reveal delay-1"><div className="toolbar-search"><Search size={15} /><input placeholder="Rechercher une action…" /></div><button className="button secondary"><Filter size={14} />Tous les agents</button><span className="ledger-integrity"><CheckCircle2 size={13} />Journal intact</span></div>
-    <section className="ledger glass-panel reveal delay-2"><header><span>HEURE</span><span>ACTEUR</span><span>ACTION</span><span>CIBLE</span><span>ÉTAT</span></header>{events.map((event) => { const Icon = event.icon; return <article key={event.time}><time>{event.time}</time><span className="ledger-agent"><Avatar name={event.agent} color={event.color} size="sm" />{event.agent}</span><span className="ledger-action"><i><Icon size={14} /></i><span><strong>{event.action}</strong><small>{event.detail}</small></span></span><code>{event.target}</code><span className="ledger-status"><CheckCircle2 size={13} />Réussi</span></article>; })}</section>
-    <div className="activity-retention"><History size={15} /><span>Les événements sont simulés et conservés localement pendant 30 jours.</span><Clock3 size={13} /></div>
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
+  const load = useCallback(() => api<{ activity: ActivityEvent[] }>("/activity?limit=100")
+    .then((result) => { setEvents(result.activity); setError(""); })
+    .catch((cause) => setError(cause instanceof Error ? cause.message : "Ledger indisponible")), []);
+  useEffect(() => { void load(); }, [load]);
+  const filtered = useMemo(() => events.filter((event) => `${event.type} ${event.message}`.toLowerCase().includes(query.toLowerCase())), [events, query]);
+  return <div className="page activity-page"><PageHeader eyebrow="Persistent event ledger" title="Activity" description="Événements réellement écrits par le control-plane, classés du plus récent au plus ancien." actions={<button className="button secondary" onClick={() => void load()}><RefreshCw size={14} />Actualiser</button>} />
+    {error && <div className="agent-alert"><CircleAlert size={14} />{error}</div>}
+    <div className="toolbar reveal delay-1"><div className="toolbar-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un événement…" /></div><button className="button secondary" disabled><Filter size={14} />{filtered.length} événements</button><span className="ledger-integrity"><CheckCircle2 size={13} />SQLite WAL</span></div>
+    <section className="real-activity-ledger glass-panel reveal delay-2">{filtered.map((event) => <article key={event.id}><i className={event.level} /><time>{new Date(event.createdAt).toLocaleString("fr-FR")}</time><span><strong>{event.message}</strong><small>{event.type}{event.jobId ? ` · job ${event.jobId.slice(0, 8)}` : ""}</small></span><em>{event.level}</em></article>)}{!filtered.length && <div className="observatory-empty"><Activity size={18} /><span>Aucun événement correspondant.</span></div>}</section>
   </div>;
 }

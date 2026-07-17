@@ -1,5 +1,7 @@
 # Phase 3 — plan technique exécutable
 
+Statut : tranches A à E terminées et validées le 17 juillet 2026.
+
 ## Tranche A — registre d’agents versionné
 
 1. Migrer les identités et versions d’agents vers SQLite.

@@ -4,12 +4,24 @@ import { createOrbitApplication } from "./server/app.mjs";
 const app = await createOrbitApplication();
 const { server, config } = app;
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.once(signal, () => server.close(async () => {
+let shuttingDown = false;
+
+async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  const closed = new Promise((resolve) => server.close(resolve));
+  server.closeAllConnections?.();
+  try {
     await app.close();
+    await closed;
     process.exit(0);
-  }));
+  } catch (error) {
+    console.error("Orbit shutdown failed", error);
+    process.exit(1);
+  }
 }
+
+for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, shutdown);
 
 server.listen(config.port, config.host, () => {
   console.log(`Orbit OS ${config.isDev ? "dev" : "production"} listening on http://${config.host}:${config.port}`);

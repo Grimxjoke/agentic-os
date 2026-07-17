@@ -1,6 +1,6 @@
 # Phase 3 — Agent Lab et Runs
 
-Statut : en cours depuis le 17 juillet 2026.
+Statut : implémenté et validé le 17 juillet 2026.
 
 ## 1. Objectif
 
@@ -83,3 +83,16 @@ artifacts sont des données mesurées ; une valeur indisponible reste `null`.
 - boucle évolutionnaire autonome (Phase 6) ;
 - connexion broker paper ou live (Phases 7 et 8) ;
 - édition de fichiers et mémoire unifiée (Phase 4).
+
+## 9. Validation réalisée
+
+- agents et équipes versionnés avec immutabilité SQLite ;
+- DAG cycliques et références inconnues refusés ;
+- concurrence réelle bornée à deux workers ;
+- exécution Vibe privée avec tool policies, budgets et trading interdit ;
+- cancel, retry et reprise après restart testés ;
+- événements append-only et SSE reprenable sans duplication ;
+- métriques inconnues conservées à `null` ;
+- chemins privés Vibe retirés des artifacts exposés ;
+- Agent Lab, Teams & Runs, Activity et Observatory connectés aux APIs réelles ;
+- build TypeScript/Vite et 37 tests unitaires/intégration réussis.
