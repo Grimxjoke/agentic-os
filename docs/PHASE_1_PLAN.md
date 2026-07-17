@@ -1,40 +1,40 @@
-# Phase 1 — plan technique exécutable
+# Phase 1 — executable technical plan
 
-## Tranche A — modules et données
+## Workstream A — modules and data
 
-1. Extraire configuration, HTTP, schémas, runtimes et application de
+1. Extract configuration, HTTP, schemas, runtimes and application from
    `server.mjs`.
-2. Ajouter un gestionnaire SQLite, des migrations SQL ordonnées et des
-   repositories à requêtes préparées.
-3. Tester migrations, transactions, repositories et redaction.
+2. Add SQLite manager, orderly SQL migrations and
+repositories with prepared queries.
+3. Test migrations, transactions, repositories, and redaction.
 
-## Tranche B — accès révocable
+## Workstream B — revocable access
 
-1. Émettre une session opaque après validation du jeton permanent.
-2. Convertir le cookie Phase 0 au premier GET authentifié.
-3. Ajouter inspection et révocation de session.
-4. Tester expiration, révocation, cookie sécurisé et absence de token en clair.
+1. Issue an opaque session after validating the permanent token.
+2. Convert the Phase 0 cookie to the first authenticated GET.
+3. Add inspection and session revocation.
+4. Test expiration, revocation, secure cookie and absence of clear token.
 
-## Tranche C — jobs et conversations
+## Workstream C — jobs and conversations
 
-1. Persister conversation, messages et identifiant runtime.
-2. Encapsuler chaque appel PI/Codex dans un job durable.
-3. Émettre événements de début, succès, récupération et erreur.
-4. Exposer les routes de lecture nécessaires au frontend.
-5. Conserver le fallback Codex pour les rollouts disparus.
+1. Persist conversation, messages and runtime ID.
+2. Encapsulate each PI/Codex call into a sustainable job.
+3. Emit start, success, recovery and error events.
+4. Expose the necessary read routes to the frontend.
+5. Keep the Codex fallback for missing rollouts.
 
-## Tranche D — System réel et design
+## Workstream D — real system and design
 
-1. Remplacer Control Center simulé par une page System en lecture réelle.
-2. Afficher services, stockage, compteurs et activité avec états loading/error.
-3. Ajouter la sauvegarde manuelle avec feedback local et vérifiable.
-4. Remplacer les badges globaux fixes et retirer le toast automatique simulé.
-5. Conserver le mouvement spatial, mais le relier aux statuts réellement reçus.
+1. Replace simulated Control Center with an actual reading System page.
+2. Show services, storage, counters and activity with loading/error states.
+3. Add manual backup with local and verifiable feedback.
+4. Replace fixed global badges and remove simulated auto toast.
+5. Keep the spatial movement, but connect it to the statuses actually received.
 
-## Tranche E — production
+## Workstream E — production
 
-1. Construire et exécuter toute la suite de tests.
-2. Créer `/var/lib/orbit-os` avec propriétaire et permissions restrictives.
-3. Installer l’unité systemd mise à jour puis redémarrer Orbit.
-4. Vérifier migrations, probes, auth, API, Codex et page System.
-5. Scanner le diff et Git pour les secrets, documenter et publier.
+1. Build and run the entire test suite.
+2. Create `/var/lib/orbit-os` with owner and restrictive permissions.
+3. Install the updated systemd unit then restart Orbit.
+4. Check migrations, probes, auth, API, Codex and System page.
+5. Scan the diff and Git for secrets, document and publish.

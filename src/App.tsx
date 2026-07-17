@@ -12,6 +12,7 @@ import { KanbanPage } from "./pages/KanbanPage";
 import { KnowledgePage } from "./pages/KnowledgePage";
 import { MemoryPage } from "./pages/MemoryPage";
 import { ObservatoryPage } from "./pages/ObservatoryPage";
+import { RunsPage } from "./pages/RunsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SkillsPage } from "./pages/SkillsPage";
 import { SwitchboardPage } from "./pages/SwitchboardPage";
@@ -30,6 +31,7 @@ export function App() {
         <Route path="chat/codex" element={<ChatPage agent="codex" />} />
         <Route path="inbox" element={<InboxPage />} />
         <Route path="agents" element={<AgentsPage />} />
+        <Route path="runs" element={<RunsPage />} />
         <Route path="skills" element={<SkillsPage />} />
         <Route path="cron" element={<CronPage />} />
         <Route path="kanban" element={<KanbanPage />} />

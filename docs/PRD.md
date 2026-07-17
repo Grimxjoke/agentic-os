@@ -1,276 +1,275 @@
 # PRD — Orbit Trading Agent OS
 
-Version de cadrage : 1.0. Produit mono-utilisateur pour Paul.
+Framing version: 1.0. Single-user product for Paul.
 
 ## 1. Vision
 
-Orbit est le cockpit depuis lequel un seul opérateur crée, lance, observe et améliore des équipes d’agents de trading. Les agents doivent pouvoir rechercher, générer des stratégies, backtester, comparer, documenter et exécuter des workflows avec une forte autonomie. L’utilisateur intervient pour définir l’intention, les budgets et les limites, pas pour approuver chaque étape ordinaire.
+Orbit is the cockpit from which a single operator creates, launches, observes and improves teams of trading agents. Agents must be able to research, generate policies, backtest, compare, document and execute workflows with strong autonomy. The user intervenes to set the intention, budgets and limits, not to approve every ordinary step.
 
-## 2. Résultat attendu
+## 2. Expected result
 
-Depuis l’interface, l’utilisateur doit pouvoir :
+From the interface, the user must be able to:
 
-1. décrire un objectif de trading en langage naturel ;
-2. créer ou choisir une équipe d’agents et ses compétences ;
-3. lancer plusieurs variantes en parallèle ;
-4. suivre en direct tâches, outils, tokens, coûts, erreurs et artifacts ;
-5. comparer des backtests reproductibles et statistiquement validés ;
-6. faire itérer automatiquement les variantes dans un budget borné ;
-7. conserver chaque hypothèse, décision, fichier, run et résultat ;
-8. promouvoir un candidat vers paper trading ;
-9. connecter ultérieurement un broker live avec un mandat borné et un kill switch ;
-10. reprendre tout travail après fermeture du navigateur ou redémarrage du VPS.
+1. describe a trading objective in natural language;
+2. create or choose a team of agents and their skills;
+3. launch several variants in parallel;
+4. monitor tasks, tools, tokens, costs, errors and artifacts live;
+5. compare reproducible and statistically validated backtests;
+6. automatically iterate the variants within a limited budget;
+7. retain every hypothesis, decision, file, run and result;
+8. promote a candidate to paper trading;
+9. subsequently connect a live broker with a bounded mandate and a kill switch;
+10. Resume any work after closing the browser or restarting the VPS.
 
-## 3. Principes produit
+## 3. Product principles
 
-- Réel ou clairement marqué indisponible : aucune métrique fictive en mode production.
-- Autonomie bornée : les limites sont du code et des données, pas seulement du prompt.
-- Persistance par défaut : aucune information utile ne dépend uniquement du navigateur.
-- Traçabilité : toute action importante possède une provenance et un résultat inspectable.
-- Reproductibilité : un backtest référence code, config, dataset, coûts et versions.
-- Paper-first : aucune promotion live automatique.
-- Calme visuel : interface vivante et spatiale, sans masquer l’état réel.
-- Dégradation honnête : un service hors ligne produit un état explicite et une action de diagnostic.
+- Real or clearly marked unavailable: no fictitious metrics in production mode.
+- Bounded autonomy: the limits are code and data, not just the prompt.
+- Persistence by default: no useful information depends solely on the browser.
+- Traceability: every important action has a source and an inspectable result.
+- Reproducibility: a backtest reference code, config, dataset, costs and versions.
+- Paper-first: no automatic live promotion.
+- Visual calm: lively and spatial interface, without masking the real state.
+- Honest degradation: An offline service produces explicit status and diagnostic action.
 
-## 4. Périmètre
+## 4. Perimeter
 
-### P0 — socle exploitable
+### P0 — exploitable base
 
-- Authentification mono-utilisateur et sessions révocables.
-- Vibe installé comme service localhost privé.
-- Chat Vibe réel avec sessions, SSE, outils et artifacts.
-- Registre persistant des agents et équipes basé sur les presets Vibe.
-- Lancement, annulation, retry et observation des swarms.
-- Explorateur de fichiers réel, limité à des roots autorisés.
-- Runs, backtests, charts, métriques, validations et rapports réels.
-- Ledger, usage tokens et coûts réels.
-- Human Inbox persistante.
-- Santé réelle des services.
-- Sauvegarde automatique des données canoniques.
-- Suppression sûre de Hermes/Grafana et fermeture des expositions inutiles.
+- Single-user authentication and revocable sessions.
+- Vibe installed as a private localhost service.
+- Real Vibe chat with sessions, SSE, tools and artifacts.
+- Persistent registry of agents and teams based on Vibe presets.
+- Launch, cancellation, retry and observation of swarms.
+- Real file explorer, limited to authorized roots.
+- Real runs, backtests, charts, metrics, validations and reports.
+- Ledger, token usage and real costs.
+- Persistent Human Inbox.
+- Actual health of services.
+- Automatic backup of canonical data.
+- Safe removal of Hermes/Grafana and closure of unnecessary exposures.
 
-### P1 — laboratoire autonome
+### P1 — autonomous laboratory
 
-- Experiment Studio pour les boucles d’apprentissage.
-- Générations, variantes, fonction de score et champion/challenger.
-- Registre d’hypothèses et mémoire reliés aux expériences.
-- Workflows planifiés durables.
-- Paper accounts et journal de trades.
-- Policies par agent : outils, marchés, budgets, concurrence, permissions.
-- Notifications et décisions regroupées sans bloquer les tâches indépendantes.
+- Experiment Studio for learning loops.
+- Generations, variants, score function and champion/challenger.
+- Register of hypotheses and memory linked to experiments.
+- Sustainable planned workflows.
+- Paper accounts and trade journal.
+- Policies by agent: tools, markets, budgets, competition, permissions.
+- Consolidated notifications and decisions without blocking independent tasks.
 
-### P2 — trading live borné
+### P2 — bounded live trading
 
-- Connexions broker live sélectionnées.
-- Mandats expirants configurés depuis l’interface.
-- Ordres dans les limites du mandat, selon politique par agent.
-- Kill switch global et par broker toujours visible.
-- Audit live et réconciliation des ordres.
-- Runner managé uniquement pour les brokers dont les garanties sont validées.
+- Selected live broker connections.
+- Expiring mandates configured from the interface.
+- Orders within the limits of the mandate, according to policy by agent.
+- Kill switch global and by broker always visible.
+- Live audit and reconciliation of orders.
+- Runner managed only for brokers whose guarantees are validated.
 
-### Hors périmètre initial
+### Outside initial scope
 
-- Multi-tenant, rôles d’équipe ou facturation SaaS.
-- Réseau social de stratégies.
-- HFT ou garanties de latence faible.
-- Conservation de faux écrans uniquement décoratifs.
-- Live trading avant validation paper et définition explicite des marchés/brokers.
+- Multi-tenant, team roles or SaaS billing.
+- Social network of strategies.
+- HFT or low latency guarantees.
+- Conservation of false screens that are purely decorative.
+- Live trading before paper validation and explicit definition of markets/brokers.
 
-## 5. Navigation cible
+## 5. Target navigation
 
-| Zone | Fonction |
+| Area | Function |
 |---|---|
-| Observatory | situation temps réel, alertes, runs actifs, budget, risque, prochaines actions |
-| Agent Lab | agents, équipes, rôles, skills, modèles, outils, budgets et policies |
-| Strategy Factory | hypothèses, création de stratégie, templates et conversation Vibe |
-| Experiments | boucles, variantes, générations, leaderboard et comparaison |
-| Runs | swarms, backtests, logs, artifacts, reproductibilité et erreurs |
-| Trading | connexions, watchlists, paper portfolio, ordres, journal, mandats et HALT |
-| Files & Data | fichiers réels, datasets, snapshots, uploads et éditeur borné |
-| Knowledge | graphe dérivé des agents, hypothèses, runs, fichiers et mémoires |
-| Automations | workflows et horaires réellement exécutés |
-| Inbox | confirmations, décisions, incidents et dépassements de budget |
-| Activity & Usage | audit global, tokens, coûts, temps et ressources |
-| System | santé, sauvegardes, connexions, secrets et diagnostics |
-| Codex Workshop | modification du dashboard uniquement, séparée des opérations trading |
+| Observatory | real-time situation, alerts, active runs, budget, risk, next actions |
+| AgentLab | agents, teams, roles, skills, models, tools, budgets and policies |
+| Strategy Factory | hypotheses, strategy creation, templates and Vibe conversation |
+| Experiments | loops, variants, generations, leaderboard and comparison |
+| Runs | swarms, backtests, logs, artifacts, reproducibility and errors |
+| Trading | connections, watchlists, paper portfolio, orders, journal, mandates and HALT |
+| Files & Data | real files, datasets, snapshots, uploads and bounded editor |
+| Knowledge | graph derived from agents, hypotheses, runs, files and memories |
+| Automation | workflows and schedules actually executed |
+| Inbox | confirmations, decisions, incidents and budget overruns |
+| Activity & Usage | global audit, tokens, costs, time and resources |
+| System | health, backups, connections, secrets and diagnostics |
+| Codex Workshop | modification of the dashboard only, separate from trading operations |
 
 ## 6. Agent Lab
 
-Chaque agent possède au minimum :
+Each agent has at least:
 
-- identité, rôle et instructions versionnées ;
-- modèle/provider et paramètres ;
-- skills et outils autorisés ;
-- marchés et data sources ;
-- budget tokens, coût, durée, itérations et retries ;
-- limite de concurrence ;
-- politique filesystem/réseau/trading ;
-- politique de confirmation ;
-- historique des versions et métriques d’exécution.
+- identity, role and versioned instructions;
+- model/provider and parameters;
+- authorized skills and tools;
+- markets and data sources;
+- budget tokens, cost, duration, iterations and retries;
+- competition limit;
+- filesystem/network/trading policy;
+- confirmation policy;
+- version history and execution metrics.
 
-Les équipes sont des DAG versionnés. Une modification crée une nouvelle version ; les anciens runs restent rattachés à leur définition exacte.
+Teams are versioned DAGs. A modification creates a new version; old runs remain attached to their exact definition.
 
-Critères d’acceptation :
+Acceptance criteria:
 
-- créer une équipe depuis un des 29 presets ;
-- la modifier sans altérer les runs historiques ;
-- lancer une équipe et voir chaque worker en temps réel ;
-- stopper/retry sans perdre les événements déjà écrits ;
-- afficher la consommation réelle par worker.
+- create a team from one of the 29 presets;
+- modify it without altering the historical runs;
+- launch a team and see each worker in real time;
+- stop/retry without losing the events already written;
+- display actual consumption per worker.
 
 ## 7. Experiment Studio
 
-### 7.1 Définition d’une expérience
+### 7.1 Definition of an experiment
 
-- hypothèse et objectif ;
-- univers, période et fréquence ;
-- snapshot de données ;
-- stratégie de base ;
-- paramètres mutables et espace de recherche ;
-- nombre maximum de générations et variantes ;
-- concurrence maximale ;
-- budget tokens, coût et durée ;
-- métriques obligatoires ;
-- contraintes éliminatoires ;
-- fonction de score ;
-- patience et critères d’arrêt ;
-- règles de promotion.
+- hypothesis and objective;
+- universe, period and frequency;
+- data snapshot;
+- basic strategy;
+- mutable parameters and search space;
+- maximum number of generations and variants;
+- maximum competition;
+- token budget, cost and duration;
+- mandatory metrics;
+- elimination constraints;
+- score function;
+- patience and stopping criteria;
+- promotion rules.
 
-### 7.2 Cycle canonique
+### 7.2 Canonical cycle
 
 ```text
-Hypothèse
-  → génération de variantes
+Hypothesis
+  → variant generation
   → validation statique
-  → backtests parallèles bornés
-  → contrôles anti-leakage et hors échantillon
-  → revue risque/coûts/exécution
+  → bounded parallel backtests
+  → anti-leakage and out-of-sample checks
+  → risk/cost/execution review
   → classement
-  → mémoire des enseignements
-  → génération suivante ou arrêt
+  → retained learnings
+  → next generation or stop
   → champion/challenger
 ```
 
-### 7.3 Règles non négociables
+### 7.3 Non-negotiable rules
 
-- Même snapshot de données pour comparer une génération.
-- Séparation train/validation/test et période finale intacte.
-- Coûts, slippage et liquidité explicites.
-- Détection des résultats manquants ou non reproductibles.
-- Pas de sélection sur le seul rendement brut.
-- Toute élimination et promotion est expliquée et persistée.
-- Dépassement de budget : pause et Inbox, jamais poursuite silencieuse.
-- Champion signifie « meilleur candidat de l’expérience », jamais « autorisé live ».
+- Same data snapshot to compare a generation.
+- Separation of train/validation/test and final period intact.
+- Explicit costs, slippage and liquidity.
+- Detection of missing or non-reproducible results.
+- No selection based on gross yield alone.
+- Any elimination and promotion is explained and persisted.
+- Budget overrun: pause and Inbox, never silent pursuit.
+- Champion means “best candidate in experience”, never “authorized live”.
 
-### 7.4 Critères d’acceptation P1
+### 7.4 P1 acceptance criteria
 
-- lancer au moins trois variantes sur deux générations ;
-- fermer le navigateur puis retrouver l’état exact ;
-- reprendre ou conclure proprement après redémarrage du moteur ;
-- comparer métriques, code, config et artifacts côte à côte ;
-- expliquer pourquoi chaque candidat a progressé ou été éliminé ;
-- stopper automatiquement au premier critère atteint : budget, patience, temps ou score.
+- launch at least three variants over two generations;
+- close the browser then find the exact status;
+- resume or conclude properly after restarting the engine;
+- compare metrics, code, config and artifacts side by side;
+- explain why each candidate progressed or was eliminated;
+- stop automatically at the first criterion reached: budget, patience, time or score.
 
-## 8. Autonomie et confirmations
+## 8. Autonomy and confirmations
 
-Niveaux de risque par défaut :
+Default risk levels:
 
-| Niveau | Exemples | Politique |
+| Level | Examples | Politics |
 |---|---|---|
-| A — autonome | lecture, recherche, indexation, calcul borné | exécution immédiate |
-| B — autonome budgété | swarms, backtests, génération de rapports | exécution tant que budgets non dépassés |
-| C — confirmation exceptionnelle | hausse importante de budget, suppression, changement infra, accès nouveau secret | Human Inbox |
-| D — capital réel | mandat, démarrage runner live, ordre hors politique ou première activation | consentement explicite et audit |
-| E — interdit | élargir son propre mandat, désactiver l’audit, exposer des secrets | refus structurel |
+| A — autonomous | reading, searching, indexing, bounded calculation | immediate execution |
+| B — budgeted autonomous | swarms, backtests, reporting | execution as long as budgets are not exceeded |
+| C — exceptional confirmation | significant increase in budget, deletion, infrastructure change, new secret access | Human Inbox |
+| D — real capital | mandate, live runner start, out-of-policy order or first activation | explicit consent and audit |
+| E — prohibited | expand own mandate, disable audit, expose secrets | structural refusal |
 
-Une tâche bloquée par une confirmation ne doit pas bloquer les autres branches du DAG.
+A task blocked by a confirmation must not block other branches of the DAG.
 
-## 9. Données et rétention
+## 9. Data and retention
 
-Doivent être persistés :
+Must be persisted:
 
-- agents, équipes, versions, prompts, skills et policies ;
-- sessions, messages, tool calls et tentatives ;
-- workflows, jobs, événements et décisions ;
-- stratégies, hypothèses, expériences, candidats et scores ;
-- datasets référencés, snapshots et checksums ;
-- code, configs, logs, trades, charts et rapports ;
-- tokens, coûts, temps CPU et erreurs ;
-- connexions, mandats, consentements et audit live.
+- agents, teams, versions, prompts, skills and policies;
+- sessions, messages, tool calls and attempts;
+- workflows, jobs, events and decisions;
+- strategies, hypotheses, experiments, candidates and scores;
+- referenced datasets, snapshots and checksums;
+- code, configs, logs, trades, charts, and reports;
+- tokens, costs, CPU time and errors;
+- connections, mandates, consents and live audit.
 
-Politique initiale : pas de suppression automatique. L’archivage et la purge seront explicites, prévisualisés et journalisés. Les secrets sont exclus des exports ordinaires.
+Initial policy: no automatic deletion. Archiving and purging will be explicit, previewed and logged. Secrets are excluded from ordinary exports.
 
 ## 10. Files & Data
 
-- Roots explicites, par exemple workspace Orbit, runtime Vibe et artifacts.
-- Interdiction de traversée de chemin et de symlink hors root.
-- Lecture, recherche, création, édition, déplacement, upload et téléchargement.
-- Diff avant sauvegarde pour les fichiers sensibles.
-- Taille et extensions bornées ; binaire en lecture/téléchargement uniquement.
-- Version ou backup avant écrasement.
-- Lien direct depuis un run vers tous ses artifacts.
+- Explicit roots, for example Orbit workspace, Vibe runtime and artifacts.
+- Prohibition of path traversal and symlink outside root.
+- Reading, searching, creating, editing, moving, uploading and downloading.
+- Diff before saving for sensitive files.
+- Limited size and extensions; binary read/download only.
+- Version or backup before overwriting.
+- Direct link from a run to all its artifacts.
 
 ## 11. Trading
 
 ### Paper
 
-- Connexion broker sandbox ou simulateur clairement identifiée.
-- Portefeuille, positions, ordres et historique réels de la sandbox.
-- Stratégie et agent à l’origine de chaque ordre.
-- Réconciliation et journal de performance.
+- Broker sandbox or simulator connection clearly identified.
+- Actual sandbox portfolio, positions, orders and history.
+- Strategy and agent at the origin of each order.
+- Reconciliation and performance log.
 
 ### Live
 
-- Désactivé globalement à l’installation.
-- Activation en plusieurs étapes avec affichage du broker, compte, durée et limites.
-- Mandat expirant, non modifiable par un agent.
-- HALT global permanent dans la navigation.
-- Les confirmations par ordre ou l’autonomie dans mandat sont configurables par agent ; le défaut initial reste confirmation par ordre.
-- Aucune promotion automatique depuis une expérience.
+- Disabled globally upon installation.
+- Multi-step activation with display of broker, account, duration and limits.
+- Expiring mandate, cannot be modified by an agent.
+- Permanent global HALT in navigation.
+- Confirmations by order or autonomy in mandate are configurable by agent; the initial defect remains confirmation by order.
+- No automatic promotion from an experience.
 
-## 12. Exigences non fonctionnelles
+## 12. Non-functional requirements
 
-- API privée liée à loopback ; une seule entrée publique proxyfiée.
-- Secrets chiffrés au repos quand possible et toujours exclus des réponses UI.
-- Migrations de base versionnées et restaurables.
-- Écritures atomiques, checksums pour les artifacts importants.
-- Jobs idempotents ou explicitement non répétables pour les ordres.
-- SSE avec reconnexion, déduplication et reprise d’événements.
-- Santé liveness/readiness séparée.
-- Interface utilisable sur desktop et tablette ; mobile pour observation/HALT.
-- Accessibilité clavier, réduction de mouvement et contraste maintenus.
-- Aucun faux statut « LIVE », « ONLINE » ou « réussi ».
+- Private API linked to loopback; a single proxied public entry.
+- Secrets encrypted at rest when possible and always excluded from UI responses.
+- Versioned and restorable base migrations.
+- Atomic writes, checksums for important artifacts.
+- Jobs idempotent or explicitly non-repeatable for orders.
+- SSE with reconnection, deduplication and event recovery.
+- Separate health liveness/readiness.
+- Interface usable on desktop and tablet; mobile for observation/HALT.
+- Keyboard accessibility, motion reduction and contrast maintained.
+- No fake “LIVE”, “ONLINE” or “successful” status.
 
 ## 13. Direction design
 
-Conserver l’identité spatiale existante mais ajouter de la vie utile :
+Maintain the existing spatial identity but add useful life:
 
-- orbites et flux animés issus de jobs réels ;
-- constellation d’agents dont les nœuds changent avec leur état ;
-- timeline vivante des outils ;
-- widgets repositionnables et persistés côté serveur ;
-- transitions de changement d’état, pas d’animations gratuites ;
-- densité variable entre cockpit et analyse détaillée ;
-- skeletons, états vides, erreurs et reconnexion soignés ;
-- mode réduction de mouvement pleinement fonctionnel.
+- animated orbits and flows from real jobs;
+- constellation of agents whose nodes change with their state;
+- living timeline of tools;
+- repositionable and persisted server-side widgets;
+- state change transitions, no free animations;
+- variable density between cockpit and detailed analysis;
+- neat skeletons, empty states, errors and reconnections;
+- fully functional motion reduction mode.
 
-## 14. Mesure du succès
+## 14. Measuring success
 
-- zéro donnée métier uniquement dans `localStorage` ;
-- 100 % des boutons opérationnels connectés ou explicitement désactivés ;
-- reprise après refresh pour 100 % des jobs longs ;
-- chaque run possède config, code, données, métriques et provenance ;
-- budget et consommation visibles avant, pendant et après une expérience ;
-- aucun ordre live possible sans mandat valide ;
-- temps médian entre une idée et trois backtests comparables inférieur à 10 minutes hors temps provider/données ;
-- aucune exposition réseau non documentée hors SSH et proxy public.
+- zero business data only in `localStorage`;
+- 100% of operational buttons connected or explicitly disabled;
+- recovery after refresh for 100% of long jobs;
+- each run has config, code, data, metrics and provenance;
+- visible budget and consumption before, during and after an experience;
+- no live order possible without a valid mandate;
+- median time between an idea and three comparable backtests less than 10 minutes excluding provider/data time;
+- no undocumented network exposure outside of SSH and public proxy.
 
-## 15. Décisions encore nécessaires avant les phases trading
+## 15. Decisions still necessary before the trading phases
 
-Ces décisions ne bloquent pas le socle P0 :
+These decisions do not block the P0 base:
 
-1. provider et modèles opérationnels de Vibe, avec budget mensuel cible ;
-2. premier marché et premier broker paper ;
-3. premier broker live éventuel ;
-4. politique de sauvegarde externe et durée de rétention souhaitée.
-
+1. Vibe provider and operating models, with target monthly budget;
+2. first market and first broker paper;
+3. possible first live broker;
+4. external backup policy and desired retention period.

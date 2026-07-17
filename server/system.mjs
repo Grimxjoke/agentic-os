@@ -33,7 +33,7 @@ export function createSystemService({ db, databasePath, dataDirectory, store, ve
       executableAvailable("/usr/local/bin/pi"),
       executableAvailable("/usr/local/bin/codex"),
       vibeClient
-        ? vibeClient.overview().catch(() => ({ engine: "offline", ready: false, reason: "API locale indisponible" }))
+        ? vibeClient.overview().catch(() => ({ engine: "offline", ready: false, reason: "Local API unavailable" }))
         : tcpAvailable(8899).then((available) => ({ engine: available ? "online" : "offline", ready: available })),
       databaseSize(databasePath),
     ]);
@@ -55,14 +55,14 @@ export function createSystemService({ db, databasePath, dataDirectory, store, ve
       counts: store.counts(),
       services: [
         { id: "orbit", name: "Orbit API", status: "operational", detail: "Control-plane local" },
-        { id: "database", name: "SQLite", status: "operational", detail: `Schéma v${schemaVersion(db)}` },
-        { id: "pi", name: "PI Runtime", status: piAvailable ? "available" : "unavailable", detail: piAvailable ? "CLI détecté · lecture seule" : "CLI introuvable" },
-        { id: "codex", name: "Codex Bridge", status: codexAvailable ? "available" : "unavailable", detail: codexAvailable ? "CLI détecté · sandbox systemd" : "CLI introuvable" },
+        { id: "database", name: "SQLite", status: "operational", detail: `Diagram v${schemaVersion(db)}` },
+        { id: "pi", name: "PI Runtime", status: piAvailable ? "available" : "unavailable", detail: piAvailable ? "CLI detected · read-only" : "CLI not found" },
+        { id: "codex", name: "Codex Bridge", status: codexAvailable ? "available" : "unavailable", detail: codexAvailable ? "CLI detected · systemd sandbox" : "CLI not found" },
         {
           id: "vibe",
           name: "Vibe-Trading",
           status: vibeState.engine === "online" ? (vibeState.ready ? "operational" : "degraded") : "unavailable",
-          detail: vibeState.engine === "online" ? (vibeState.ready ? "Moteur et provider prêts" : vibeState.reason || "Provider non prêt") : "API locale indisponible",
+          detail: vibeState.engine === "online" ? (vibeState.ready ? "Engine and provider ready" : vibeState.reason || "Provider not ready") : "Local API unavailable",
         },
       ],
       activity: store.recentActivity(12),
@@ -71,7 +71,7 @@ export function createSystemService({ db, databasePath, dataDirectory, store, ve
 
   async function createBackup() {
     const result = await backupDatabase(db, dataDirectory);
-    store.event({ type: "database.backup", message: `Sauvegarde ${result.filename} créée`, payload: { filename: result.filename, bytes: result.bytes } });
+    store.event({ type: "database.backup", message: `Backup${result.filename}created`, payload: { filename: result.filename, bytes: result.bytes } });
     store.audit({ actor: "user", action: "database.backup", outcome: "success", targetType: "backup", targetId: result.filename, metadata: { bytes: result.bytes } });
     return result;
   }

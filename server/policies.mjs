@@ -4,13 +4,17 @@ const policies = Object.freeze({
   "database.backup": { risk: "B", allowed: true, confirmation: false },
   "session.revoke": { risk: "A", allowed: true, confirmation: false },
   "agents.write": { risk: "B", allowed: true, confirmation: false },
+  "teams.write": { risk: "B", allowed: true, confirmation: false },
+  "runs.start": { risk: "B", allowed: true, confirmation: false },
+  "runs.cancel": { risk: "B", allowed: true, confirmation: false },
+  "runs.retry": { risk: "B", allowed: true, confirmation: false },
   "service.control": { risk: "C", allowed: false, confirmation: true },
   "trading.live": { risk: "D", allowed: false, confirmation: true },
 });
 
 export class PolicyError extends Error {
   constructor(action) {
-    super(`Action non autorisée dans cette phase : ${action}`);
+    super(`Action not authorized in this phase: ${action}`);
     this.name = "PolicyError";
     this.code = "policy_denied";
   }
