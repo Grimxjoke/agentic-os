@@ -112,9 +112,8 @@ Validation réalisée :
 
 ### Phase 2 — Vibe réel
 
-État au 17 juillet 2026 : moteur, BFF, interface, tests et déploiement terminés ;
-l’autorisation OAuth ChatGPT de l’utilisateur et le smoke test LLM restent à
-valider avant clôture.
+État au 17 juillet 2026 : moteur, BFF, interface, OAuth ChatGPT/Codex, tests,
+smoke test LLM et déploiement production terminés.
 
 Livrables :
 
@@ -133,6 +132,14 @@ Tests :
 - reconnexion/déduplication SSE ;
 - restart Vibe pendant une session ;
 - provider mock pour tests sans coût.
+
+Validation réalisée :
+
+- 26 tests Orbit et 92 tests Vibe ciblés verts ;
+- provider `openai-codex/gpt-5.4` prêt sans `OPENAI_API_KEY` ;
+- persistance confirmée après restart Vibe ;
+- réponse réelle et flux SSE complet relayés via Orbit ;
+- trois services actifs et probes internes/publiques vertes.
 
 ### Phase 3 — Agent Lab et Runs
 

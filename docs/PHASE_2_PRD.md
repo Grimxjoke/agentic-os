@@ -1,6 +1,6 @@
 # Phase 2 — moteur Vibe réel
 
-Statut : contrat d’implémentation du 17 juillet 2026.
+Statut : implémenté et validé le 17 juillet 2026.
 
 ## 1. Objectif
 
@@ -115,3 +115,13 @@ Le rollback arrête et désactive `vibe-trading.service`, restaure l’unité Or
 précédente si nécessaire et retire les variables `VIBE_*` d’Orbit. Les données
 de `/var/lib/vibe-trading` sont conservées. Aucun rollback ne doit supprimer les
 sessions, tokens OAuth ou artifacts sans action explicite.
+
+## 10. Validation réalisée
+
+- OAuth ChatGPT/Codex autorisé sous l’utilisateur de service, sans clé API.
+- `/health` et `/ready` répondent 200 avec le provider `openai-codex` prêt.
+- Smoke test réel via Orbit : session, message, réponse exacte
+  `VIBE_PHASE_2_OK`, événements SSE et suppression de la session de test.
+- Persistance d’une session vérifiée après restart du service.
+- 26 tests Orbit et 92 tests Vibe ciblés réussis.
+- Skills et presets réellement observés : 87 et 30 sur la révision épinglée.

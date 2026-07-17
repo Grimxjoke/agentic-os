@@ -6,7 +6,7 @@
 
 Orbit possède désormais un premier noyau serveur persistant : sessions d’accès révocables, conversations PI/Codex, jobs, événements, décisions, audit, migrations et sauvegardes SQLite. La page System et le chat lisent ces données réelles. Les autres surfaces métier restent majoritairement alimentées par des constantes ou `localStorage` et doivent encore être remplacées phase par phase.
 
-Vibe-Trading est désormais installé comme moteur privé épinglé, isolé et persistant. Orbit expose une frontière BFF allowlistée pour sa santé, ses sessions, son chat SSE, ses skills, ses presets, ses uploads et ses runs. Le provider `openai-codex` est configuré sans clé API ; son autorisation OAuth ChatGPT reste l’unique étape externe avant une première recherche réelle.
+Vibe-Trading est désormais installé comme moteur privé épinglé, isolé et persistant. Orbit expose une frontière BFF allowlistée pour sa santé, ses sessions, son chat SSE, ses skills, ses presets, ses uploads et ses runs. Le provider `openai-codex` est autorisé via l’abonnement ChatGPT/Codex, sans clé API, et une première recherche réelle avec streaming a été validée.
 
 Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Déclaré obsolète et supprimable par le propriétaire, il a été retiré transactionnellement après la bascule et le test de redémarrage du chemin public Orbit.
 
@@ -48,7 +48,7 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 | Knowledge | graphe statique | index des stratégies, runs, hypothèses, agents, fichiers et mémoires |
 | Memory | quatre entrées locales | mémoire Vibe durable avec provenance, correction et recherche |
 | Artifacts | liste statique | rapports, code, métriques, journaux et exports réels |
-| Vibe | cockpit réel : santé/provider, sessions, messages, SSE, 87 skills, 30 presets, uploads et runs | autoriser OAuth puis étendre les détails d’artifacts |
+| Vibe | cockpit réel : santé/provider, sessions, messages, SSE, 87 skills, 30 presets, uploads et runs | étendre les détails d’artifacts en Phase 3/4 |
 | Trading | données codées en dur, TradingView externe uniquement | paper trading, comptes, positions, ordres, risques et live borné |
 | Switchboard | topologie locale modifiable | état réel des services et connexions, sans faux interrupteurs |
 | System | santé Orbit/SQLite/PI/Codex/Vibe, métriques et sauvegarde réelles | étendre avec diagnostics et actions strictement allowlistées |
@@ -95,7 +95,7 @@ Limites :
 - Utilisateur système `vibe-trading`, code root-owned, HOME/runtime privé.
 - Service systemd durci, actif et lié uniquement à `127.0.0.1:8899`.
 - Provider `openai-codex`, modèle `openai-codex/gpt-5.4`, sans `OPENAI_API_KEY`.
-- OAuth non encore autorisé à cet instant : `/health` répond 200 et `/ready` 503 avec une raison non sensible.
+- OAuth autorisé : `/health` et `/ready` répondent 200 ; le smoke test réel a retourné `VIBE_PHASE_2_OK` via Orbit et SSE.
 - Outils shell et scheduler désactivés ; aucun broker ni live trading configuré.
 - Persistance validée par création, restart, relecture puis suppression d’une session de probe.
 
