@@ -10,7 +10,7 @@
 [![SQLite WAL](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
 [![Phase 5 implemented](https://img.shields.io/badge/roadmap-Phase_5_implemented-18c8c8)](#roadmap)
 
-[Vision](#vision) · [Features](#available-features) · [Architecture](#architecture) · [Startup](#local-boot) · [Roadmap](#roadmap) · [Documentation](#documentation)
+[Vision](#vision) · [Features](#available-features) · [Architecture](#architecture) · [Startup](#local-boot) · [Roadmap](#roadmap) · [Handoff](docs/CONTINUATION_HANDOFF.md) · [Documentation](#documentation)
 
 </div>
 
@@ -224,6 +224,7 @@ To report a vulnerability, avoid a public issue containing exploitable details o
 
 ## Documentation
 
+- [Continuation handoff](docs/CONTINUATION_HANDOFF.md)
 - [Product PRD](docs/PRD.md)
 - [Architecture map](docs/ARCHITECTURE_MAP.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
