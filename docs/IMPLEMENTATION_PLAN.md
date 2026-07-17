@@ -112,13 +112,17 @@ Validation réalisée :
 
 ### Phase 2 — Vibe réel
 
+État au 17 juillet 2026 : moteur, BFF, interface, tests et déploiement terminés ;
+l’autorisation OAuth ChatGPT de l’utilisateur et le smoke test LLM restent à
+valider avant clôture.
+
 Livrables :
 
 - déploiement systemd Vibe ;
 - proxy `/api/vibe/*` et streaming SSE ;
 - page santé/configuration provider sans révéler les clés ;
 - sessions et chat Vibe réels ;
-- liste réelle des 77 skills et 29 presets ;
+- liste réelle des 87 skills et 30 presets observés sur la révision épinglée ;
 - upload et artifacts ;
 - instrumentation des erreurs et timeouts.
 
