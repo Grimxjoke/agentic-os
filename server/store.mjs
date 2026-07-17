@@ -3,6 +3,26 @@ import { parseSafeJson, redact, safeJson } from "./security.mjs";
 
 const now = () => new Date().toISOString();
 
+function mapAgentRow(row) {
+  if (!row) return null;
+  const { toolsJson, skillsJson, budgetJson, policyJson, ...agent } = row;
+  return {
+    ...agent,
+    tools: parseSafeJson(toolsJson),
+    skills: parseSafeJson(skillsJson),
+    budget: parseSafeJson(budgetJson),
+    policy: parseSafeJson(policyJson),
+  };
+}
+
+const agentSelect = `SELECT a.id, a.current_version_id AS versionId, v.version,
+  v.name, v.role, v.description, v.instructions, v.provider, v.model,
+  v.tools_json AS toolsJson, v.skills_json AS skillsJson,
+  v.budget_json AS budgetJson, v.policy_json AS policyJson, v.color,
+  v.created_by AS createdBy, a.created_at AS createdAt, a.updated_at AS updatedAt,
+  v.created_at AS versionCreatedAt
+  FROM agents a JOIN agent_versions v ON v.id = a.current_version_id`;
+
 export class ControlPlaneStore {
   constructor(db, clock = now) {
     this.db = db;
@@ -98,6 +118,67 @@ export class ControlPlaneStore {
       .run(runtimeSessionId || null, this.clock(), conversationId);
   }
 
+  createAgent(definition, actor = "user") {
+    const agentId = randomUUID();
+    const versionId = randomUUID();
+    const createdAt = this.clock();
+    return this.transaction(() => {
+      this.db.prepare(`INSERT INTO agents(id, created_at, updated_at)
+        VALUES (?, ?, ?)`).run(agentId, createdAt, createdAt);
+      this.db.prepare(`INSERT INTO agent_versions
+        (id, agent_id, version, name, role, description, instructions, provider, model,
+         tools_json, skills_json, budget_json, policy_json, color, created_by, created_at)
+        VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(versionId, agentId, definition.name, definition.role, definition.description,
+          definition.instructions, definition.provider, definition.model,
+          safeJson(definition.tools), safeJson(definition.skills), safeJson(definition.budget),
+          safeJson(definition.policy), definition.color, actor, createdAt);
+      this.db.prepare("UPDATE agents SET current_version_id = ? WHERE id = ?").run(versionId, agentId);
+      this.event({ type: "agent.created", message: `${definition.name} créé`, payload: { agentId, version: 1 } });
+      this.audit({ actor, action: "agent.created", outcome: "success", targetType: "agent", targetId: agentId, metadata: { versionId, version: 1 } });
+      return this.getAgent(agentId);
+    });
+  }
+
+  createAgentVersion(agentId, definition, actor = "user") {
+    const versionId = randomUUID();
+    const createdAt = this.clock();
+    return this.transaction(() => {
+      const agent = this.db.prepare("SELECT id FROM agents WHERE id = ? AND archived_at IS NULL").get(agentId);
+      if (!agent) return null;
+      const version = Number(this.db.prepare("SELECT COALESCE(MAX(version), 0) + 1 AS version FROM agent_versions WHERE agent_id = ?").get(agentId).version);
+      this.db.prepare(`INSERT INTO agent_versions
+        (id, agent_id, version, name, role, description, instructions, provider, model,
+         tools_json, skills_json, budget_json, policy_json, color, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(versionId, agentId, version, definition.name, definition.role, definition.description,
+          definition.instructions, definition.provider, definition.model,
+          safeJson(definition.tools), safeJson(definition.skills), safeJson(definition.budget),
+          safeJson(definition.policy), definition.color, actor, createdAt);
+      this.db.prepare("UPDATE agents SET current_version_id = ?, updated_at = ? WHERE id = ?")
+        .run(versionId, createdAt, agentId);
+      this.event({ type: "agent.versioned", message: `${definition.name} révisé en v${version}`, payload: { agentId, versionId, version } });
+      this.audit({ actor, action: "agent.versioned", outcome: "success", targetType: "agent", targetId: agentId, metadata: { versionId, version } });
+      return this.getAgent(agentId);
+    });
+  }
+
+  getAgent(id) {
+    return mapAgentRow(this.db.prepare(`${agentSelect} WHERE a.id = ? AND a.archived_at IS NULL`).get(id));
+  }
+
+  listAgents() {
+    return this.db.prepare(`${agentSelect} WHERE a.archived_at IS NULL ORDER BY a.updated_at DESC, a.id`).all().map(mapAgentRow);
+  }
+
+  listAgentVersions(agentId) {
+    return this.db.prepare(`SELECT id AS versionId, agent_id AS id, version, name, role, description,
+      instructions, provider, model, tools_json AS toolsJson, skills_json AS skillsJson,
+      budget_json AS budgetJson, policy_json AS policyJson, color, created_by AS createdBy,
+      created_at AS versionCreatedAt FROM agent_versions WHERE agent_id = ? ORDER BY version DESC`)
+      .all(agentId).map(mapAgentRow);
+  }
+
   createJob({ kind, title, input = {} }) {
     const id = randomUUID();
     const createdAt = this.clock();
@@ -188,6 +269,7 @@ export class ControlPlaneStore {
       events: count("events"),
       pendingDecisions: count("decisions", "WHERE status = 'pending'"),
       auditEntries: count("audit_entries"),
+      agents: count("agents", "WHERE archived_at IS NULL"),
     };
   }
 

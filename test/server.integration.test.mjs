@@ -232,7 +232,7 @@ test("system overview and backups expose measured, redacted data", async () => {
   assert.equal(overview.status, 200);
   const body = await overview.json();
   assert.equal(body.ok, true);
-  assert.equal(body.database.schemaVersion, 1);
+  assert.equal(body.database.schemaVersion, 2);
   assert.ok(body.services.some((service) => service.id === "orbit" && service.status === "operational"));
   assert.doesNotMatch(JSON.stringify(body), new RegExp(token));
   assert.doesNotMatch(JSON.stringify(body), /ORBIT_ACCESS_TOKEN|orbit-test-data/);
@@ -242,6 +242,43 @@ test("system overview and backups expose measured, redacted data", async () => {
   const backupBody = await backup.json();
   assert.match(backupBody.backup.filename, /^orbit-.*\.sqlite$/);
   assert.ok(backupBody.backup.bytes > 0);
+});
+
+test("agent registry creates and versions definitions through the protected API", async () => {
+  const headers = await authenticatedHeaders();
+  const definition = {
+    name: "Atlas", role: "Architecte de stratégie", description: "Structure les recherches.",
+    instructions: "Construire un plan reproductible.", provider: "openai-codex", model: "gpt-5.4",
+    tools: ["filesystem", "web"], skills: [], color: "violet",
+    budget: { maxTokens: 50000, maxCostUsd: 0, maxDurationMinutes: 20, maxRetries: 1 },
+    policy: { filesystem: "read", network: "allow", trading: "deny" },
+  };
+  const createdResponse = await fetch(`${origin}/orbit/api/agents`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(definition),
+  });
+  assert.equal(createdResponse.status, 201);
+  const created = (await createdResponse.json()).agent;
+  assert.equal(created.version, 1);
+  assert.equal(created.policy.trading, "deny");
+
+  const revisedResponse = await fetch(`${origin}/orbit/api/agents/${created.id}/versions`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...definition, instructions: "Construire puis vérifier un plan reproductible." }),
+  });
+  assert.equal(revisedResponse.status, 201);
+  assert.equal((await revisedResponse.json()).agent.version, 2);
+
+  const historyResponse = await fetch(`${origin}/orbit/api/agents/${created.id}/versions`, { headers });
+  assert.equal(historyResponse.status, 200);
+  const history = await historyResponse.json();
+  assert.deepEqual(history.versions.map((version) => version.version), [2, 1]);
+  assert.equal(history.versions[1].instructions, definition.instructions);
+
+  const invalidResponse = await fetch(`${origin}/orbit/api/agents`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...definition, policy: { ...definition.policy, trading: "allow" } }),
+  });
+  assert.equal(invalidResponse.status, 400);
 });
 
 test("revoked browser sessions can no longer access the API", async () => {

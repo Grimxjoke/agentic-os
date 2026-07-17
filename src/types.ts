@@ -16,6 +16,40 @@ export type Agent = {
   avatar?: string;
 };
 
+export type AgentBudget = {
+  maxTokens: number;
+  maxCostUsd: number;
+  maxDurationMinutes: number;
+  maxRetries: number;
+};
+
+export type AgentPolicy = {
+  filesystem: "deny" | "read" | "write";
+  network: "deny" | "allow";
+  trading: "deny";
+};
+
+export type AgentDefinition = {
+  id: string;
+  versionId: string;
+  version: number;
+  name: string;
+  role: string;
+  description: string;
+  instructions: string;
+  provider: string;
+  model: string;
+  tools: string[];
+  skills: string[];
+  budget: AgentBudget;
+  policy: AgentPolicy;
+  color: string;
+  createdBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+  versionCreatedAt: string;
+};
+
 export type WorkspaceFile = {
   id: string;
   name: string;
@@ -59,6 +93,7 @@ export type SystemOverview = {
     events: number;
     pendingDecisions: number;
     auditEntries: number;
+    agents: number;
   };
   services: SystemService[];
   activity: ActivityEvent[];

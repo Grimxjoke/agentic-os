@@ -7,7 +7,7 @@ import { openDatabase } from "./database.mjs";
 import { json, readJson, sameOrigin, securityHeaders, serveStatic, unauthorized } from "./http.mjs";
 import { createRuntimeBridge } from "./runtimes.mjs";
 import { assertAllowed } from "./policies.mjs";
-import { parseAgent, parseChatInput, parseConversationInput, ValidationError } from "./schemas.mjs";
+import { parseAgent, parseAgentDefinitionInput, parseChatInput, parseConversationInput, ValidationError } from "./schemas.mjs";
 import { redact } from "./security.mjs";
 import { ControlPlaneStore } from "./store.mjs";
 import { createSystemService } from "./system.mjs";
@@ -72,6 +72,34 @@ export async function createOrbitApplication(overrides = {}) {
     }
     if (req.method === "GET" && url.pathname === "/api/activity") {
       return json(res, 200, { ok: true, activity: store.recentActivity(url.searchParams.get("limit")) });
+    }
+    if (req.method === "GET" && url.pathname === "/api/agents") {
+      return json(res, 200, { ok: true, agents: store.listAgents() });
+    }
+    if (req.method === "POST" && url.pathname === "/api/agents") {
+      try {
+        assertAllowed("agents.write");
+        const agent = store.createAgent(parseAgentDefinitionInput(await readJson(req)));
+        return json(res, 201, { ok: true, agent });
+      } catch (error) {
+        return errorResponse(res, error, 400);
+      }
+    }
+    const agentVersionsMatch = /^\/api\/agents\/([0-9a-f-]{36})\/versions$/i.exec(url.pathname);
+    if (req.method === "GET" && agentVersionsMatch) {
+      const agent = store.getAgent(agentVersionsMatch[1]);
+      if (!agent) return json(res, 404, { error: "Agent introuvable", code: "not_found" });
+      return json(res, 200, { ok: true, agent, versions: store.listAgentVersions(agent.id) });
+    }
+    if (req.method === "POST" && agentVersionsMatch) {
+      try {
+        assertAllowed("agents.write");
+        const agent = store.createAgentVersion(agentVersionsMatch[1], parseAgentDefinitionInput(await readJson(req)));
+        if (!agent) return json(res, 404, { error: "Agent introuvable", code: "not_found" });
+        return json(res, 201, { ok: true, agent });
+      } catch (error) {
+        return errorResponse(res, error, 400);
+      }
     }
     if (req.method === "GET" && url.pathname === "/api/conversations") {
       try {

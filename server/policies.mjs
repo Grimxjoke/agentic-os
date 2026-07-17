@@ -3,6 +3,7 @@ const policies = Object.freeze({
   "chat.build": { risk: "B", allowed: true, confirmation: false },
   "database.backup": { risk: "B", allowed: true, confirmation: false },
   "session.revoke": { risk: "A", allowed: true, confirmation: false },
+  "agents.write": { risk: "B", allowed: true, confirmation: false },
   "service.control": { risk: "C", allowed: false, confirmation: true },
   "trading.live": { risk: "D", allowed: false, confirmation: true },
 });
