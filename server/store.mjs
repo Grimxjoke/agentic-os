@@ -57,6 +57,30 @@ function mapWorkerRow(row) {
   return { ...worker, output: outputJson ? parseSafeJson(outputJson) : null };
 }
 
+function mapStrategyRow(row) {
+  if (!row) return null;
+  const { configJson, ...strategy } = row;
+  return { ...strategy, config: parseSafeJson(configJson) };
+}
+
+function mapDatasetRow(row, includeData = false) {
+  if (!row) return null;
+  const { dataJson, ...dataset } = row;
+  return includeData ? { ...dataset, data: parseSafeJson(dataJson, []) } : dataset;
+}
+
+function mapBacktestRow(row) {
+  if (!row) return null;
+  const { configJson, strategySnapshotJson, dataSnapshotJson, metricsJson, warningsJson, equityJson, returnsJson, tradesJson, ...backtest } = row;
+  return {
+    ...backtest,
+    config: parseSafeJson(configJson), strategySnapshot: parseSafeJson(strategySnapshotJson), dataSnapshot: parseSafeJson(dataSnapshotJson),
+    metrics: metricsJson ? parseSafeJson(metricsJson) : null, warnings: parseSafeJson(warningsJson, []),
+    equity: equityJson ? parseSafeJson(equityJson, []) : undefined, returns: returnsJson ? parseSafeJson(returnsJson, []) : undefined,
+    trades: tradesJson ? parseSafeJson(tradesJson, []) : undefined,
+  };
+}
+
 const teamSelect = `SELECT t.id, t.current_version_id AS versionId, v.version, v.name,
   v.description, v.max_concurrency AS maxConcurrency, v.nodes_json AS nodesJson,
   v.budget_json AS budgetJson, v.created_by AS createdBy,
@@ -801,6 +825,15 @@ export class ControlPlaneStore {
       if (include(run.objective, run.status)) nodes.push({ id: `run:${run.id}`, entityId: run.id, type: "run", label: run.objective.slice(0, 80), detail: run.status, uri: `/runs?run=${run.id}` });
       edges.push({ source: `run:${run.id}`, target: `team:${run.teamId}`, type: "executed_by" });
     }
+    for (const strategy of this.listStrategies()) {
+      if (include(strategy.name, strategy.objective)) nodes.push({ id: `strategy:${strategy.id}`, entityId: strategy.id, type: "strategy", label: strategy.name, detail: `Version ${strategy.version} · ${strategy.template}`, uri: "/strategies" });
+      if (strategy.hypothesisId) edges.push({ source: `strategy:${strategy.id}`, target: `hypothesis:${strategy.hypothesisId}`, type: "tests" });
+    }
+    for (const backtest of this.listBacktests(100)) {
+      if (include(backtest.strategySnapshot.name, backtest.status)) nodes.push({ id: `backtest:${backtest.id}`, entityId: backtest.id, type: "backtest", label: backtest.strategySnapshot.name, detail: `${backtest.status} · ${backtest.dataSnapshot.symbol}`, uri: `/backtests?run=${backtest.id}` });
+      edges.push({ source: `backtest:${backtest.id}`, target: `strategy:${backtest.strategyId}`, type: "executes" });
+      if (backtest.hypothesisId) edges.push({ source: `backtest:${backtest.id}`, target: `hypothesis:${backtest.hypothesisId}`, type: "evaluates" });
+    }
     for (const artifact of this.listArtifacts({ query, limit: 250 })) {
       const nodeId = artifact.sourceType === "file" ? `file:${artifact.sourceId}` : `artifact:${artifact.sourceId}`;
       nodes.push({ id: nodeId, entityId: artifact.sourceId, type: "artifact", label: artifact.name, detail: artifact.path || artifact.kind, uri: artifact.path ? `/files?path=${encodeURIComponent(artifact.path)}` : "/artifacts" });
@@ -816,6 +849,165 @@ export class ControlPlaneStore {
     }
     const nodeIds = new Set(nodes.map((node) => node.id));
     return { generatedAt: this.clock(), nodes, edges: edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)) };
+  }
+
+  createStrategy(definition, actor = "user") {
+    const id = randomUUID();
+    const versionId = randomUUID();
+    const timestamp = this.clock();
+    return this.transaction(() => {
+      this.db.prepare("INSERT INTO strategies(id, hypothesis_id, created_at, updated_at) VALUES (?, ?, ?, ?)")
+        .run(id, definition.hypothesisId || null, timestamp, timestamp);
+      this.db.prepare(`INSERT INTO strategy_versions
+        (id, strategy_id, version, name, objective, thesis, template, code, config_json, created_by, created_at)
+        VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`).run(versionId, id, definition.name, definition.objective,
+          definition.thesis, definition.template, definition.code, safeJson(definition.config), actor, timestamp);
+      this.db.prepare("UPDATE strategies SET current_version_id = ? WHERE id = ?").run(versionId, id);
+      this.event({ type: "strategy.created", message: `${definition.name} created`, payload: { strategyId: id, versionId } });
+      this.audit({ actor, action: "strategy.created", outcome: "success", targetType: "strategy", targetId: id, metadata: { versionId, hypothesisId: definition.hypothesisId || null } });
+      return this.getStrategy(id);
+    });
+  }
+
+  createStrategyVersion(strategyId, definition, actor = "user") {
+    const timestamp = this.clock();
+    return this.transaction(() => {
+      const strategy = this.db.prepare("SELECT id FROM strategies WHERE id = ? AND archived_at IS NULL").get(strategyId);
+      if (!strategy) return null;
+      const version = Number(this.db.prepare("SELECT COALESCE(MAX(version), 0) + 1 AS version FROM strategy_versions WHERE strategy_id = ?").get(strategyId).version);
+      const versionId = randomUUID();
+      this.db.prepare(`INSERT INTO strategy_versions
+        (id, strategy_id, version, name, objective, thesis, template, code, config_json, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(versionId, strategyId, version, definition.name, definition.objective,
+          definition.thesis, definition.template, definition.code, safeJson(definition.config), actor, timestamp);
+      this.db.prepare("UPDATE strategies SET current_version_id = ?, hypothesis_id = ?, updated_at = ? WHERE id = ?")
+        .run(versionId, definition.hypothesisId || null, timestamp, strategyId);
+      this.event({ type: "strategy.versioned", message: `${definition.name} revised in v${version}`, payload: { strategyId, versionId, version } });
+      this.audit({ actor, action: "strategy.versioned", outcome: "success", targetType: "strategy", targetId: strategyId, metadata: { versionId, version } });
+      return this.getStrategy(strategyId);
+    });
+  }
+
+  getStrategy(id) {
+    return mapStrategyRow(this.db.prepare(`SELECT s.id, s.current_version_id AS versionId, s.hypothesis_id AS hypothesisId,
+      v.version, v.name, v.objective, v.thesis, v.template, v.code, v.config_json AS configJson,
+      v.created_by AS createdBy, s.created_at AS createdAt, s.updated_at AS updatedAt, v.created_at AS versionCreatedAt
+      FROM strategies s JOIN strategy_versions v ON v.id = s.current_version_id WHERE s.id = ? AND s.archived_at IS NULL`).get(id));
+  }
+
+  getStrategyVersion(id) {
+    return mapStrategyRow(this.db.prepare(`SELECT s.id, v.id AS versionId, s.hypothesis_id AS hypothesisId,
+      v.version, v.name, v.objective, v.thesis, v.template, v.code, v.config_json AS configJson,
+      v.created_by AS createdBy, s.created_at AS createdAt, s.updated_at AS updatedAt, v.created_at AS versionCreatedAt
+      FROM strategy_versions v JOIN strategies s ON s.id = v.strategy_id WHERE v.id = ? AND s.archived_at IS NULL`).get(id));
+  }
+
+  listStrategies() {
+    return this.db.prepare("SELECT id FROM strategies WHERE archived_at IS NULL ORDER BY updated_at DESC").all().map(({ id }) => this.getStrategy(id));
+  }
+
+  listStrategyVersions(strategyId) {
+    return this.db.prepare(`SELECT s.id, v.id AS versionId, s.hypothesis_id AS hypothesisId,
+      v.version, v.name, v.objective, v.thesis, v.template, v.code, v.config_json AS configJson,
+      v.created_by AS createdBy, s.created_at AS createdAt, s.updated_at AS updatedAt, v.created_at AS versionCreatedAt
+      FROM strategy_versions v JOIN strategies s ON s.id = v.strategy_id
+      WHERE s.id = ? AND s.archived_at IS NULL ORDER BY v.version DESC`).all(strategyId).map(mapStrategyRow);
+  }
+
+  createDatasetSnapshot(input) {
+    const existing = this.db.prepare("SELECT id FROM dataset_snapshots WHERE checksum = ?").get(input.checksum);
+    if (existing) return this.getDatasetSnapshot(existing.id, true);
+    const id = randomUUID();
+    const createdAt = this.clock();
+    this.db.prepare(`INSERT INTO dataset_snapshots
+      (id, name, source, symbol, frequency, start_at, end_at, rows, checksum, data_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, input.name, input.source, input.symbol, input.frequency,
+        input.data[0].timestamp, input.data.at(-1).timestamp, input.data.length, input.checksum, safeJson(input.data), createdAt);
+    this.audit({ actor: "system", action: "dataset.snapshot_created", outcome: "success", targetType: "dataset_snapshot", targetId: id, metadata: { checksum: input.checksum, rows: input.data.length } });
+    return this.getDatasetSnapshot(id, true);
+  }
+
+  getDatasetSnapshot(id, includeData = false) {
+    const columns = `id, name, source, symbol, frequency, start_at AS startAt, end_at AS endAt,
+      rows, checksum, ${includeData ? "data_json AS dataJson," : ""} created_at AS createdAt`;
+    return mapDatasetRow(this.db.prepare(`SELECT ${columns} FROM dataset_snapshots WHERE id = ?`).get(id), includeData);
+  }
+
+  listDatasetSnapshots() {
+    return this.db.prepare(`SELECT id, name, source, symbol, frequency, start_at AS startAt, end_at AS endAt,
+      rows, checksum, created_at AS createdAt FROM dataset_snapshots ORDER BY created_at DESC`).all().map((row) => mapDatasetRow(row));
+  }
+
+  createBacktest({ strategyVersionId, datasetSnapshotId, config }, actor = "user") {
+    const strategy = this.getStrategyVersion(strategyVersionId);
+    const dataset = this.getDatasetSnapshot(datasetSnapshotId, true);
+    if (!strategy || !dataset) return null;
+    const id = randomUUID();
+    const createdAt = this.clock();
+    const dataSnapshot = { id: dataset.id, name: dataset.name, source: dataset.source, symbol: dataset.symbol, frequency: dataset.frequency, startAt: dataset.startAt, endAt: dataset.endAt, rows: dataset.rows, checksum: dataset.checksum };
+    this.db.prepare(`INSERT INTO backtests
+      (id, strategy_id, strategy_version_id, hypothesis_id, dataset_snapshot_id, status, config_json, strategy_snapshot_json, data_snapshot_json, created_at)
+      VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)`).run(id, strategy.id, strategy.versionId, strategy.hypothesisId || null,
+        dataset.id, safeJson(config), safeJson(strategy), safeJson(dataSnapshot), createdAt);
+    this.event({ type: "backtest.queued", message: `${strategy.name} backtest queued`, payload: { backtestId: id, strategyVersionId, datasetSnapshotId } });
+    this.audit({ actor, action: "backtest.created", outcome: "success", targetType: "backtest", targetId: id, metadata: { strategyVersionId, datasetSnapshotId } });
+    return this.getBacktest(id);
+  }
+
+  startBacktest(id) {
+    return this.db.prepare("UPDATE backtests SET status = 'running', started_at = ? WHERE id = ? AND status = 'queued'").run(this.clock(), id).changes > 0;
+  }
+
+  completeBacktest(id, result, artifact, validations) {
+    const finishedAt = this.clock();
+    return this.transaction(() => {
+      const changed = this.db.prepare(`UPDATE backtests SET status = 'completed', metrics_json = ?, warnings_json = ?,
+        equity_json = ?, returns_json = ?, trades_json = ?, artifact_uri = ?, artifact_checksum = ?, finished_at = ?
+        WHERE id = ? AND status = 'running'`).run(safeJson(result.metrics), safeJson(result.warnings), safeJson(result.equity),
+          safeJson(result.returns), safeJson(result.trades), artifact.uri, artifact.checksum, finishedAt, id).changes;
+      if (!changed) return false;
+      const insert = this.db.prepare(`INSERT INTO backtest_validations
+        (id, backtest_id, kind, status, summary, metrics_json, warnings_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+      for (const validation of validations) insert.run(randomUUID(), id, validation.kind, validation.status, validation.summary, safeJson(validation.metrics), safeJson(validation.warnings), finishedAt);
+      this.event({ type: "backtest.completed", message: "Backtest completed", payload: { backtestId: id, metrics: result.metrics } });
+      this.audit({ actor: "system", action: "backtest.completed", outcome: "success", targetType: "backtest", targetId: id, metadata: { artifactChecksum: artifact.checksum } });
+      return true;
+    });
+  }
+
+  failBacktest(id, error) {
+    const safeError = String(redact(String(error))).slice(-1400);
+    const changed = this.db.prepare("UPDATE backtests SET status = 'failed', error = ?, finished_at = ? WHERE id = ? AND status IN ('queued', 'running')")
+      .run(safeError, this.clock(), id).changes;
+    if (changed) this.event({ type: "backtest.failed", level: "error", message: safeError, payload: { backtestId: id } });
+    return changed > 0;
+  }
+
+  getBacktest(id, detail = true) {
+    const row = this.db.prepare(`SELECT id, strategy_id AS strategyId, strategy_version_id AS strategyVersionId,
+      hypothesis_id AS hypothesisId, dataset_snapshot_id AS datasetSnapshotId, status, config_json AS configJson,
+      strategy_snapshot_json AS strategySnapshotJson, data_snapshot_json AS dataSnapshotJson, metrics_json AS metricsJson,
+      warnings_json AS warningsJson, ${detail ? "equity_json AS equityJson, returns_json AS returnsJson, trades_json AS tradesJson," : ""}
+      artifact_uri AS artifactUri, artifact_checksum AS artifactChecksum, error, created_at AS createdAt,
+      started_at AS startedAt, finished_at AS finishedAt FROM backtests WHERE id = ?`).get(id);
+    if (!row) return null;
+    const backtest = mapBacktestRow(row);
+    if (detail) backtest.validations = this.db.prepare(`SELECT id, kind, status, summary, metrics_json AS metricsJson,
+      warnings_json AS warningsJson, created_at AS createdAt FROM backtest_validations WHERE backtest_id = ? ORDER BY kind`).all(id)
+      .map(({ metricsJson, warningsJson, ...validation }) => ({ ...validation, metrics: parseSafeJson(metricsJson), warnings: parseSafeJson(warningsJson, []) }));
+    return backtest;
+  }
+
+  listBacktests(limit = 100) {
+    const bounded = Math.max(1, Math.min(Number(limit) || 100, 250));
+    return this.db.prepare("SELECT id FROM backtests ORDER BY created_at DESC LIMIT ?").all(bounded).map(({ id }) => this.getBacktest(id, false));
+  }
+
+  reconcileStaleBacktests() {
+    const stale = this.db.prepare("SELECT id FROM backtests WHERE status = 'running'").all();
+    for (const { id } of stale) this.failBacktest(id, "Backtest interrupted by control-plane restart");
+    return stale.length;
   }
 
   counts() {
@@ -837,6 +1029,8 @@ export class ControlPlaneStore {
       memories: count("memories", "WHERE archived_at IS NULL"),
       hypotheses: count("hypotheses", "WHERE archived_at IS NULL"),
       artifacts: count("artifact_index"),
+      strategies: count("strategies", "WHERE archived_at IS NULL"),
+      backtests: count("backtests"),
     };
   }
 

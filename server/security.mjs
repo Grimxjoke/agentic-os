@@ -15,6 +15,7 @@ export function constantTimeTextEqual(left = "", right = "") {
 
 export function redact(value, key = "") {
   if (sensitiveKey.test(key)) return "[REDACTED]";
+  if (/checksum$/i.test(key) && typeof value === "string" && /^[0-9a-f]{64}$/i.test(value)) return value;
   if (typeof value === "string") return value.replace(bearerLike, "[REDACTED]");
   if (Array.isArray(value)) return value.map((item) => redact(item));
   if (value && typeof value === "object") {

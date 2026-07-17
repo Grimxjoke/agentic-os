@@ -8,9 +8,9 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
 [![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![SQLite WAL](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![Phase 4 implemented](https://img.shields.io/badge/roadmap-Phase_4_implemented-18c8c8)](#roadmap)
+[![Phase 5 implemented](https://img.shields.io/badge/roadmap-Phase_5_implemented-18c8c8)](#roadmap)
 
-[Vision](#vision) · [Features](#available-features) · [Architecture](#architecture) · [Startup](#local-boot) · [Roadmap](#roadmap) · [Documentation](#documentation)
+[Vision](#vision) · [Features](#available-features) · [Architecture](#architecture) · [Startup](#local-boot) · [Roadmap](#roadmap) · [Handoff](docs/CONTINUATION_HANDOFF.md) · [Documentation](#documentation)
 
 </div>
 
@@ -65,6 +65,15 @@ The project follows three simple principles:
 - persistent memory with explicit confidence, kind, and provenance;
 - hypothesis register with evidence statuses and source links;
 - read-only knowledge graph derived from canonical agents, teams, runs, files, hypotheses, and memories.
+
+### Strategy Factory and backtests
+
+- objective-driven immutable momentum and mean-reversion strategy templates;
+- checksummed deterministic OHLCV dataset snapshots that require no network;
+- cost-aware backtests with exact strategy, data, configuration, and code lineage;
+- net equity, trades, reproducibility reports, and explicit overfitting warnings;
+- Monte Carlo, bootstrap, static integrity, and walk-forward validation;
+- compatible-run comparison, return correlation, and an honest Alpha Zoo catalog.
 
 ### Interface
 
@@ -167,6 +176,10 @@ Phase 4 raises the suite to **43 Orbit tests**, adding traversal, symlink, exten
 size, binary, atomic write, conflict, backup restoration, index refresh, search,
 provenance, and broken-link coverage.
 
+Phase 5 raises the suite to **49 Orbit tests**, adding deterministic offline data,
+lookahead and corruption rejection, known metrics, immutable research snapshots,
+artifact integrity, compatibility checks, statistical validation, and end-to-end APIs.
+
 ## Roadmap
 
 | Phase | Status | Result |
@@ -176,7 +189,7 @@ provenance, and broken-link coverage.
 | 2 · Real Vibe | ✅ Validated | private engine, OAuth, sessions, SSE and artifacts |
 | 3 · Agent Lab & Runs | ✅ Validated | versioned agents, DAG teams and observable runs |
 | 4 · Files, Memory, Knowledge | ✅ Implemented | bounded files, restorable backups, provenance and derived graph |
-| 5 · Strategy Factory | ⏳ Planned | reproducible backtests and statistical validations |
+| 5 · Strategy Factory | ✅ Implemented | reproducible backtests and statistical validations |
 | 6 · Experiment Studio | ⏳ Planned | generations, candidates and champion/challenger |
 | 7 · Automations & Human Inbox | ⏳ Planned | durable workflows, schedules and bounded decisions |
 | 8 · Paper Trading | ⏳ Planned | sandbox broker, orders and reconciliation |
@@ -211,6 +224,7 @@ To report a vulnerability, avoid a public issue containing exploitable details o
 
 ## Documentation
 
+- [Continuation handoff](docs/CONTINUATION_HANDOFF.md)
 - [Product PRD](docs/PRD.md)
 - [Architecture map](docs/ARCHITECTURE_MAP.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
@@ -221,6 +235,9 @@ To report a vulnerability, avoid a public issue containing exploitable details o
 - [Plan Phase 4](docs/PHASE_4_PLAN.md)
 - [Runbook Phase 4](docs/PHASE_4_RUNBOOK.md)
 - [Phase 4 human acceptance test](docs/PHASE_4_HUMAN_TEST.md)
+- [Plan Phase 5](docs/PHASE_5_PLAN.md)
+- [Runbook Phase 5](docs/PHASE_5_RUNBOOK.md)
+- [Phase 5 human acceptance test](docs/PHASE_5_HUMAN_TEST.md)
 - [Runbook Phase 3](docs/PHASE_3_RUNBOOK.md)
 - [Phase 3 human acceptance test](docs/PHASE_3_HUMAN_TEST.md)
 - [Runbook Phase 0](docs/PHASE_0_RUNBOOK.md)

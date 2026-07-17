@@ -2,6 +2,8 @@ import { access, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { createAuth } from "./auth.mjs";
+import { alphaZoo, createSyntheticDataset, strategyFromObjective } from "./backtests.mjs";
+import { createBacktestService } from "./backtest-service.mjs";
 import { loadConfig } from "./config.mjs";
 import { openDatabase } from "./database.mjs";
 import { createFileService } from "./files.mjs";
@@ -9,7 +11,7 @@ import { json, readJson, sameOrigin, securityHeaders, serveStatic, unauthorized 
 import { createRunOrchestrator, createVibeWorkerExecutor } from "./orchestrator.mjs";
 import { createRuntimeBridge } from "./runtimes.mjs";
 import { assertAllowed } from "./policies.mjs";
-import { parseAgent, parseAgentDefinitionInput, parseChatInput, parseConversationInput, parseFileWriteInput, parseHypothesisInput, parseMemoryInput, parseRunInput, parseTeamDefinitionInput, ValidationError } from "./schemas.mjs";
+import { parseAgent, parseAgentDefinitionInput, parseBacktestInput, parseBacktestSelectionInput, parseChatInput, parseConversationInput, parseFileWriteInput, parseHypothesisInput, parseMemoryInput, parseRunInput, parseStrategyDefinitionInput, parseStrategyObjectiveInput, parseSyntheticDatasetInput, parseTeamDefinitionInput, ValidationError } from "./schemas.mjs";
 import { redact } from "./security.mjs";
 import { ControlPlaneStore } from "./store.mjs";
 import { createSystemService } from "./system.mjs";
@@ -77,11 +79,13 @@ export async function createOrbitApplication(overrides = {}) {
   };
   await refreshArtifacts();
   store.reconcileStaleJobs();
+  store.reconcileStaleBacktests();
   const auth = createAuth({ accessToken: config.accessToken, store });
   const runtimes = config.runtimes || createRuntimeBridge({ workspace: config.workspace });
   const vibe = config.vibeClient || createVibeClient({ baseUrl: config.vibeBaseUrl, apiKey: config.vibeApiKey });
   const runExecutor = overrides.runExecutor || createVibeWorkerExecutor(vibe);
   const orchestrator = createRunOrchestrator({ store, executor: runExecutor, maxConcurrency: 2 });
+  const backtests = createBacktestService({ store, dataDirectory });
   orchestrator.recover();
   const system = createSystemService({ db, databasePath, dataDirectory, store, version: packageJson.version, vibeClient: vibe });
   const handleVibe = createVibeApiHandler(vibe);
@@ -219,6 +223,73 @@ export async function createOrbitApplication(overrides = {}) {
       try {
         return json(res, 200, { ok: true, graph: store.knowledgeGraph(url.searchParams.get("q") || "") });
       } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/strategies") {
+      return json(res, 200, { ok: true, strategies: store.listStrategies() });
+    }
+    if (req.method === "POST" && url.pathname === "/api/strategies/generate") {
+      try {
+        assertAllowed("strategies.write");
+        const input = parseStrategyObjectiveInput(await readJson(req));
+        const generated = strategyFromObjective(input.objective);
+        const strategy = store.createStrategy({ ...generated, objective: input.objective, name: input.name || generated.name, hypothesisId: input.hypothesisId });
+        return json(res, 201, { ok: true, strategy });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    const strategyVersionsMatch = /^\/api\/strategies\/([0-9a-f-]{36})\/versions$/i.exec(url.pathname);
+    if (req.method === "GET" && strategyVersionsMatch) {
+      const strategy = store.getStrategy(strategyVersionsMatch[1]);
+      return strategy ? json(res, 200, { ok: true, strategy, versions: store.listStrategyVersions(strategy.id) }) : json(res, 404, { error: "Strategy not found", code: "not_found" });
+    }
+    if (req.method === "POST" && strategyVersionsMatch) {
+      try {
+        assertAllowed("strategies.write");
+        const strategy = store.createStrategyVersion(strategyVersionsMatch[1], parseStrategyDefinitionInput(await readJson(req)));
+        return strategy ? json(res, 201, { ok: true, strategy }) : json(res, 404, { error: "Strategy not found", code: "not_found" });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/datasets") {
+      return json(res, 200, { ok: true, datasets: store.listDatasetSnapshots() });
+    }
+    if (req.method === "POST" && url.pathname === "/api/datasets/synthetic") {
+      try {
+        assertAllowed("datasets.generate");
+        const generated = createSyntheticDataset(parseSyntheticDatasetInput(await readJson(req)));
+        const dataset = store.createDatasetSnapshot(generated);
+        return json(res, 201, { ok: true, dataset });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/backtests") {
+      return json(res, 200, { ok: true, backtests: store.listBacktests(url.searchParams.get("limit")) });
+    }
+    if (req.method === "POST" && url.pathname === "/api/backtests") {
+      try {
+        assertAllowed("backtests.run");
+        const input = parseBacktestInput(await readJson(req));
+        const created = store.createBacktest(input);
+        if (!created) return json(res, 404, { error: "Strategy version or dataset snapshot not found", code: "not_found" });
+        return json(res, 201, { ok: true, backtest: await backtests.execute(created.id) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    const backtestMatch = /^\/api\/backtests\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "GET" && backtestMatch) {
+      const backtest = await backtests.detail(backtestMatch[1]);
+      return backtest ? json(res, 200, { ok: true, backtest }) : json(res, 404, { error: "Backtest not found", code: "not_found" });
+    }
+    if (req.method === "POST" && url.pathname === "/api/backtests/compare") {
+      try {
+        const input = parseBacktestSelectionInput(await readJson(req));
+        return json(res, 200, { ok: true, backtests: backtests.comparison(input.ids) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "POST" && url.pathname === "/api/backtests/correlation") {
+      try {
+        const input = parseBacktestSelectionInput(await readJson(req));
+        return json(res, 200, { ok: true, correlation: backtests.correlations(input.ids) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/alpha-zoo") {
+      return json(res, 200, { ok: true, factors: alphaZoo });
     }
     if (req.method === "GET" && url.pathname === "/api/agents") {
       return json(res, 200, { ok: true, agents: store.listAgents() });
@@ -444,6 +515,7 @@ export async function createOrbitApplication(overrides = {}) {
     db,
     store,
     files,
+    backtests,
     orchestrator,
     server,
     async close() {
