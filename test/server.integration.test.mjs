@@ -232,7 +232,7 @@ test("system overview and backups expose measured, redacted data", async () => {
   assert.equal(overview.status, 200);
   const body = await overview.json();
   assert.equal(body.ok, true);
-  assert.equal(body.database.schemaVersion, 3);
+  assert.equal(body.database.schemaVersion, 4);
   assert.ok(body.services.some((service) => service.id === "orbit" && service.status === "operational"));
   assert.doesNotMatch(JSON.stringify(body), new RegExp(token));
   assert.doesNotMatch(JSON.stringify(body), /ORBIT_ACCESS_TOKEN|orbit-test-data/);
@@ -242,6 +242,36 @@ test("system overview and backups expose measured, redacted data", async () => {
   const backupBody = await backup.json();
   assert.match(backupBody.backup.filename, /^orbit-.*\.sqlite$/);
   assert.ok(backupBody.backup.bytes > 0);
+});
+
+test("Phase 4 APIs enforce file boundaries and persist sourced knowledge", async () => {
+  const headers = await authenticatedHeaders();
+  const traversal = await fetch(`${origin}/orbit/api/files?root=workspace&path=${encodeURIComponent("../etc")}`, { headers });
+  assert.equal(traversal.status, 400);
+  assert.equal((await traversal.json()).code, "file_boundary");
+
+  const listing = await fetch(`${origin}/orbit/api/files?root=workspace&path=docs`, { headers });
+  assert.equal(listing.status, 200);
+  assert.ok((await listing.json()).entries.some((entry) => entry.name === "PRD.md" && entry.text));
+
+  const hypothesisResponse = await fetch(`${origin}/orbit/api/hypotheses`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ title: "Integration hypothesis", statement: "A bounded test should persist.", rationale: "API contract", status: "testing", tags: ["contract"], sourceType: "file", sourceId: "workspace:docs/PRD.md" }),
+  });
+  assert.equal(hypothesisResponse.status, 201);
+  const hypothesis = (await hypothesisResponse.json()).hypothesis;
+
+  const memoryResponse = await fetch(`${origin}/orbit/api/memories`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ title: "Integration memory", content: "Retain the tested contract.", kind: "learning", confidence: 0.9, pinned: true, sourceType: "hypothesis", sourceId: hypothesis.id }),
+  });
+  assert.equal(memoryResponse.status, 201);
+  const memory = (await memoryResponse.json()).memory;
+
+  const graphResponse = await fetch(`${origin}/orbit/api/knowledge`, { headers });
+  assert.equal(graphResponse.status, 200);
+  const graph = (await graphResponse.json()).graph;
+  assert.ok(graph.edges.some((edge) => edge.source === `memory:${memory.id}` && edge.target === `hypothesis:${hypothesis.id}`));
 });
 
 test("agent registry creates and versions definitions through the protected API", async () => {

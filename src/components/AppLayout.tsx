@@ -120,7 +120,7 @@ export function AppLayout() {
 
         <div className="sidebar-footer">
           <button className={"demo-pulse system-pulse-button " + (!systemError && system ? "active" : "")} onClick={() => go("/control")}>
-            <span className="pulse-dot" /><span><strong>{systemError ? "Degraded system" : system ? "Active control plane" : "Connexion…"}</strong><small>{system ? `${system.counts.events}persisted events` : "Synchronisation Orbit"}</small></span><Gauge size={14} />
+            <span className="pulse-dot" /><span><strong>{systemError ? "Degraded system" : system ? "Active control plane" : "Connecting…"}</strong><small>{system ? `${system.counts.events} persisted events` : "Synchronizing Orbit"}</small></span><Gauge size={14} />
           </button>
           <div className="profile-chip"><div className="profile-avatar">PB</div><div><strong>Workspace de Paul</strong><small>V0.5 · Private VPS</small></div><Sparkles size={15} /></div>
         </div>
@@ -131,7 +131,7 @@ export function AppLayout() {
           <button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={19} /></button>
           <div className="breadcrumbs"><Boxes size={15} /><span>Orbit OS</span><i>/</i><strong>{allItems.find((item) => item.to === location.pathname)?.label ?? "Observatoire"}</strong></div>
           <button className="command-search" onClick={() => setPaletteOpen(true)}><Search size={15} /><span>Search, open or manage…</span><kbd>⌘ K</kbd></button>
-          <button className={`system-chip ${systemError ? "degraded" : ""}`} onClick={() => go("/control")}><Network size={14} /><span>{system ? `${serviceCount}/${system.services.length}systems` : systemError ? "Degraded system" : "Connexion…"}</span><i /></button>
+          <button className={`system-chip ${systemError ? "degraded" : ""}`} onClick={() => go("/control")}><Network size={14} /><span>{system ? `${serviceCount}/${system.services.length} systems` : systemError ? "Degraded system" : "Connecting…"}</span><i /></button>
           <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Activate light lunar theme" : "Enable Dark Orbital Theme"} data-feedback={theme === "dark" ? "Lunar theme activated" : "Orbital theme activated"}>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
         </header>
         <main className="main-content"><Outlet /></main>
