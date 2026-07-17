@@ -23,11 +23,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     body = await response.json();
   } catch {
-    throw new ApiError(`Réponse HTTP invalide (${response.status})`, response.status);
+    throw new ApiError(`Invalid HTTP response (${response.status})`, response.status);
   }
   if (!response.ok) {
     const error = body as { error?: string; code?: string };
-    throw new ApiError(error.error || `Requête impossible (${response.status})`, response.status, error.code);
+    throw new ApiError(error.error || `Unable to request (${response.status})`, response.status, error.code);
   }
   return body as T;
 }

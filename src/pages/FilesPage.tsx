@@ -19,7 +19,7 @@ export function FilesPage() {
   const openFile = (id: string) => { setActiveId(id); setTabs((current) => current.includes(id) ? current : [...current, id]); };
   const closeTab = (id: string) => { const next = tabs.filter((tab) => tab !== id); setTabs(next); if (activeId === id && next.length) setActiveId(next[next.length - 1]); };
   const updateContent = (content: string) => {
-    setFiles((current) => current.map((file) => file.id === active.id ? { ...file, content, updated: "modifié à l'instant" } : file));
+    setFiles((current) => current.map((file) => file.id === active.id ? { ...file, content, updated: "edited just now" } : file));
     setSavedPulse(true);
     window.setTimeout(() => setSavedPulse(false), 1200);
   };
@@ -27,7 +27,7 @@ export function FilesPage() {
   return (
     <div className="ide-shell v03-ide">
       <aside className="file-sidebar">
-        <header><span>EXPLORATEUR</span><div><button aria-label="Nouveau fichier"><Plus size={15} /></button><button aria-label="Options de l’explorateur"><MoreHorizontal size={15} /></button></div></header>
+        <header><span>EXPLORATEUR</span><div><button aria-label="New file"><Plus size={15} /></button><button aria-label="Explorer Options"><MoreHorizontal size={15} /></button></div></header>
         <div className="workspace-root"><FolderOpen size={15} /><strong>AGENTIC OS</strong><em>LOCAL</em></div>
         <div className="file-tree">
           <div className="tree-folder"><span><FolderOpen size={14} />Strategy</span>{files.filter((file) => file.path.includes("Strategy")).map((file) => <FileRow file={file} active={file.id === activeId} onClick={() => openFile(file.id)} key={file.id} />)}</div>
@@ -35,11 +35,11 @@ export function FilesPage() {
           <div className="tree-folder"><span><FolderOpen size={14} />Artifacts</span>{files.filter((file) => file.path.includes("Artifacts")).map((file) => <FileRow file={file} active={file.id === activeId} onClick={() => openFile(file.id)} key={file.id} />)}</div>
           <div className="tree-folder"><span><Folder size={14} />Agents</span>{files.filter((file) => file.path.includes("Agents")).map((file) => <FileRow file={file} active={file.id === activeId} onClick={() => openFile(file.id)} key={file.id} />)}</div>
         </div>
-        <div className="file-sidebar-bottom"><button><Search size={14} />Recherche globale</button><button><FileText size={14} />{files.length} fichiers indexés</button></div>
+        <div className="file-sidebar-bottom"><button><Search size={14} />Global search</button><button><FileText size={14} />{files.length} indexed files</button></div>
       </aside>
 
       <section className="editor-shell">
-        <div className="editor-tabs"><button className="panel-toggle" aria-label="Masquer l’explorateur"><PanelLeftClose size={15} /></button>{tabs.map((id) => { const file = files.find((item) => item.id === id); if (!file) return null; return <button className={id === activeId ? "active" : ""} key={id} onClick={() => setActiveId(id)}>{file.type === "html" ? <FileCode2 size={14} /> : <FileText size={14} />}{file.name}<X size={13} onClick={(event) => { event.stopPropagation(); closeTab(id); }} /></button>; })}<span /></div>
+        <div className="editor-tabs"><button className="panel-toggle" aria-label="Hide Explorer"><PanelLeftClose size={15} /></button>{tabs.map((id) => { const file = files.find((item) => item.id === id); if (!file) return null; return <button className={id === activeId ? "active" : ""} key={id} onClick={() => setActiveId(id)}>{file.type === "html" ? <FileCode2 size={14} /> : <FileText size={14} />}{file.name}<X size={13} onClick={(event) => { event.stopPropagation(); closeTab(id); }} /></button>; })}<span /></div>
         <div className="editor-toolbar">
           <div className="file-breadcrumb">Agentic OS <i>/</i> {active.path.split("/").filter(Boolean).slice(-2).join(" / ")}</div>
           <div className="editor-actions">
@@ -49,7 +49,7 @@ export function FilesPage() {
               <button className={mode === "visual" ? "active" : ""} onClick={() => setMode("visual")}><Eye size={13} />Visual</button>
               <button className={mode === "split" ? "active" : ""} onClick={() => setMode("split")}><Columns2 size={13} />Split</button>
             </div>
-            <button className="icon-button" aria-label="Enregistrer le fichier"><Save size={15} /></button><button className="icon-button" aria-label="Options du fichier"><MoreHorizontal size={15} /></button>
+            <button className="icon-button" aria-label="Save file"><Save size={15} /></button><button className="icon-button" aria-label="File Options"><MoreHorizontal size={15} /></button>
           </div>
         </div>
 
@@ -59,7 +59,7 @@ export function FilesPage() {
           {mode === "split" && <><div className="split-pane"><CodeEditor content={active.content} onChange={updateContent} /></div><div className="split-pane visual-pane"><VisualDocument key={active.id + "-split"} file={active} onChange={updateContent} /></div></>}
         </div>
 
-        <footer className="editor-status"><span className={savedPulse ? "saved" : ""}><i />{savedPulse ? "saved locally" : "local autosave"}</span><span>UTF-8</span><span>{active.type === "html" ? "HTML" : "Markdown"}</span><span>Ln {active.content.split("\n").length}</span><strong>{active.type === "html" && mode !== "code" ? <><LockKeyhole size={11} /> Aperçu protégé</> : <><Sparkles size={11} /> Éditeur Visual stable</>}</strong></footer>
+        <footer className="editor-status"><span className={savedPulse ? "saved" : ""}><i />{savedPulse ? "saved locally" : "local autosave"}</span><span>UTF-8</span><span>{active.type === "html" ? "HTML" : "Markdown"}</span><span>Ln {active.content.split("\n").length}</span><strong>{active.type === "html" && mode !== "code" ? <><LockKeyhole size={11} /> Protected preview</> : <><Sparkles size={11} /> Stable Visual Editor</>}</strong></footer>
       </section>
     </div>
   );
@@ -71,7 +71,7 @@ function CodeEditor({ content, onChange }: { content: string; onChange: (value: 
 
 function VisualDocument({ file, onChange }: { file: WorkspaceFile; onChange: (value: string) => void }) {
   if (file.type === "html") {
-    return <div className="notion-canvas html-preview-canvas"><div className="visual-edit-hint readonly"><LockKeyhole size={13} />Aperçu HTML sécurisé en lecture seule · utilisez Code pour modifier</div><div className="html-preview-frame"><iframe title={"Aperçu de " + file.name} srcDoc={file.content} sandbox="" /></div></div>;
+    return <div className="notion-canvas html-preview-canvas"><div className="visual-edit-hint readonly"><LockKeyhole size={13} />Read-only secure HTML preview · use Code to edit</div><div className="html-preview-frame"><iframe title={"Overview of" + file.name} srcDoc={file.content} sandbox="" /></div></div>;
   }
   return <MarkdownVisualEditor file={file} onChange={onChange} />;
 }
@@ -91,7 +91,7 @@ function MarkdownVisualEditor({ file, onChange }: { file: WorkspaceFile; onChang
     setDirty(false);
   };
 
-  return <div className="notion-canvas"><div className={"visual-edit-hint " + (dirty ? "dirty" : "")}><Sparkles size={13} />{dirty ? "Modifications en cours · cliquez hors du document pour enregistrer" : "Édition Markdown directe · Entrée, Retour arrière et Suppr fonctionnent normalement"}</div><article ref={editorRef} className="markdown-preview notion-editor stable-editor" contentEditable suppressContentEditableWarning onInput={() => setDirty(true)} onBlur={save} /></div>;
+  return <div className="notion-canvas"><div className={"visual-edit-hint " + (dirty ? "dirty" : "")}><Sparkles size={13} />{dirty ? "Edits in progress · click outside the document to save" : "Direct Markdown Editing · Enter, Backspace and Delete work normally"}</div><article ref={editorRef} className="markdown-preview notion-editor stable-editor" contentEditable suppressContentEditableWarning onInput={() => setDirty(true)} onBlur={save} /></div>;
 }
 
 function FileRow({ file, active, onClick }: { file: WorkspaceFile; active: boolean; onClick: () => void }) {

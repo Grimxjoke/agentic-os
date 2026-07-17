@@ -18,7 +18,7 @@ export function loadConfig(overrides = {}) {
     ...overrides,
   };
   if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65_535) {
-    throw new Error(`PORT invalide: ${config.port}`);
+    throw new Error(`Invalid PORT: ${config.port}`);
   }
   return config;
 }

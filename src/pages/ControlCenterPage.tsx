@@ -23,7 +23,7 @@ function formatDuration(seconds: number) {
 }
 
 function timeLabel(value: string) {
-  return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(value));
 }
 
 export function ControlCenterPage() {
@@ -40,7 +40,7 @@ export function ControlCenterPage() {
       setOverview(next);
       setError("");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "System indisponible");
+      setError(reason instanceof Error ? reason.message : "System unavailable");
     } finally {
       if (!quiet) setLoading(false);
     }
@@ -60,7 +60,7 @@ export function ControlCenterPage() {
       setNotice(`${result.backup.filename} · ${formatBytes(result.backup.bytes)}`);
       await refresh(true);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Sauvegarde impossible");
+      setError(reason instanceof Error ? reason.message : "Unable to save");
     } finally {
       setBackingUp(false);
     }
@@ -72,24 +72,24 @@ export function ControlCenterPage() {
     <PageHeader
       eyebrow="Phase 1 · Persistent control-plane"
       title="System"
-      description="Santé, persistance et activité mesurées directement par Orbit. Aucun statut de cette page ne provient de données de démonstration."
-      actions={<><button className="button secondary" onClick={() => refresh()} disabled={loading}><RefreshCw size={14} className={loading ? "spin" : ""} />Actualiser</button><button className="button primary" onClick={createBackup} disabled={backingUp || !overview}><Download size={14} />{backingUp ? "Sauvegarde…" : "Sauvegarder SQLite"}</button></>}
+      description="Health, persistence and activity measured directly by Orbit. No status on this page comes from demo data."
+      actions={<><button className="button secondary" onClick={() => refresh()} disabled={loading}><RefreshCw size={14} className={loading ? "spin" : ""} />Refresh</button><button className="button primary" onClick={createBackup} disabled={backingUp || !overview}><Download size={14} />{backingUp ? "Backing up…" : "Back up SQLite"}</button></>}
     />
 
-    {error && <div className="system-alert error"><TriangleAlert size={17} /><span><strong>État partiellement indisponible</strong><small>{error}</small></span><button className="button secondary compact" onClick={() => refresh()}>Réessayer</button></div>}
-    {notice && <div className="system-alert success"><CheckCircle2 size={17} /><span><strong>Sauvegarde créée</strong><small>{notice}</small></span></div>}
+    {error && <div className="system-alert error"><TriangleAlert size={17} /><span><strong>Partially unavailable status</strong><small>{error}</small></span><button className="button secondary compact" onClick={() => refresh()}>Try again</button></div>}
+    {notice && <div className="system-alert success"><CheckCircle2 size={17} /><span><strong>Backup created</strong><small>{notice}</small></span></div>}
 
     <section className="control-statusbar system-statusbar reveal delay-1">
       <div><span className="control-status-icon"><Gauge size={18} /></span><p><strong>{overview ? `${available}/${overview.services.length}` : "—"}</strong><small>Composants disponibles</small></p></div>
       <div><span className="control-status-icon violet"><Clock3 size={18} /></span><p><strong>{overview ? formatDuration(overview.runtime.uptimeSeconds) : "—"}</strong><small>Uptime Orbit</small></p></div>
-      <div><span className="control-status-icon rose"><Database size={18} /></span><p><strong>{overview?.database.schemaVersion ?? "—"}</strong><small>Version du schéma</small></p></div>
+      <div><span className="control-status-icon rose"><Database size={18} /></span><p><strong>{overview?.database.schemaVersion ?? "—"}</strong><small>Schema version</small></p></div>
       <div><span className="control-status-icon amber"><ShieldCheck size={18} /></span><p><strong>{overview?.counts.activeSessions ?? "—"}</strong><small>Sessions actives</small></p></div>
-      <span className={`control-heartbeat ${error ? "degraded" : ""}`}><span className="pulse-dot" />{loading ? "Synchronisation" : error ? "Dégradé" : "Mesure active"}</span>
+      <span className={`control-heartbeat ${error ? "degraded" : ""}`}><span className="pulse-dot" />{loading ? "Synchronisation" : error ? "Gradient" : "Mesure active"}</span>
     </section>
 
     <div className="system-grid reveal delay-2">
       <section className="system-services glass-panel">
-        <header className="panel-heading"><div><p className="section-kicker">Runtime topology</p><h3>Composants observés</h3></div><span className="system-freshness"><Activity size={13} />{overview ? `Mesuré à ${timeLabel(overview.generatedAt)}` : "En attente"}</span></header>
+        <header className="panel-heading"><div><p className="section-kicker">Runtime topology</p><h3>Observed components</h3></div><span className="system-freshness"><Activity size={13} />{overview ? `Measured at${timeLabel(overview.generatedAt)}` : "En attente"}</span></header>
         <div className="system-service-list">
           {loading && !overview && Array.from({ length: 5 }, (_, index) => <div className="system-service skeleton" key={index} />)}
           {overview?.services.map((service) => <ServiceRow service={service} key={service.id} />)}
@@ -105,21 +105,21 @@ export function ControlCenterPage() {
           <div><dt>Processus</dt><dd>{overview ? formatBytes(overview.runtime.memoryBytes) : "—"} RAM</dd></div>
           <div><dt>Runtime</dt><dd>{overview?.runtime.node ?? "—"}</dd></div>
         </dl>
-        <div className="persistence-note"><ShieldCheck size={15} /><span><strong>Écriture durable</strong><small>WAL, synchronous FULL et transactions atomiques.</small></span></div>
+        <div className="persistence-note"><ShieldCheck size={15} /><span><strong>Sustainable writing</strong><small>WAL, synchronous FULL and atomic transactions.</small></span></div>
       </aside>
     </div>
 
     <section className="system-metrics reveal delay-2">
       <Metric icon={Command} label="Conversations" value={overview?.counts.conversations} detail={`${overview?.counts.messages ?? 0} messages`} />
       <Metric icon={Activity} label="Jobs" value={overview?.counts.jobs} detail={`${overview?.counts.runningJobs ?? 0} en cours`} tone="violet" />
-      <Metric icon={Sparkles} label="Événements" value={overview?.counts.events} detail="Ledger opérationnel" tone="rose" />
-      <Metric icon={ShieldCheck} label="Audit" value={overview?.counts.auditEntries} detail={`${overview?.counts.pendingDecisions ?? 0} décision en attente`} tone="amber" />
+      <Metric icon={Sparkles} label="Events" value={overview?.counts.events} detail="Operational ledger" tone="rose" />
+      <Metric icon={ShieldCheck} label="Audit" value={overview?.counts.auditEntries} detail={`${overview?.counts.pendingDecisions ?? 0}pending decision`} tone="amber" />
     </section>
 
     <section className="system-activity glass-panel reveal delay-3">
-      <header className="panel-heading"><div><p className="section-kicker">Persistent event stream</p><h3>Activité récente</h3></div><span>{overview?.activity.length ?? 0} événements affichés</span></header>
+      <header className="panel-heading"><div><p className="section-kicker">Persistent event stream</p><h3>Recent activity</h3></div><span>{overview?.activity.length ?? 0} events displayed</span></header>
       <div className="system-event-list">
-        {!loading && !overview?.activity.length && <div className="system-empty"><Activity size={18} /><span><strong>Aucun événement</strong><small>Les prochains jobs PI/Codex apparaîtront ici.</small></span></div>}
+        {!loading && !overview?.activity.length && <div className="system-empty"><Activity size={18} /><span><strong>No events</strong><small>Upcoming PI/Codex jobs will appear here.</small></span></div>}
         {overview?.activity.map((event) => <article key={event.id} className={event.level}><span className="event-signal" /><div><strong>{event.message}</strong><small>{event.type}{event.jobId ? ` · job ${event.jobId.slice(0, 8)}` : ""}</small></div><time>{timeLabel(event.createdAt)}</time></article>)}
       </div>
     </section>
@@ -128,7 +128,7 @@ export function ControlCenterPage() {
 
 function ServiceRow({ service }: { service: SystemService }) {
   const Icon = serviceIcons[service.id as keyof typeof serviceIcons] ?? Server;
-  const label = service.status === "operational" ? "opérationnel" : service.status === "available" ? "disponible" : service.status === "deferred" ? "différé" : "indisponible";
+  const label = service.status === "operational" ? "operational" : service.status === "available" ? "disponible" : service.status === "deferred" ? "deferred" : "unavailable";
   return <article className={`system-service ${service.status}`}><span className="service-orb"><Icon size={17} /></span><div><strong>{service.name}</strong><small>{service.detail}</small></div><span className={`runtime-state ${service.status}`}><i />{label}</span></article>;
 }
 

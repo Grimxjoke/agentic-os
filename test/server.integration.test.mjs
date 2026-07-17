@@ -125,7 +125,7 @@ test("protected pages reject anonymous requests with security headers", async ()
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("referrer-policy"), "no-referrer");
   assert.equal(response.headers.get("x-frame-options"), "DENY");
-  assert.match(await response.text(), /Accès protégé/);
+  assert.match(await response.text(), /Protected Access/);
 });
 
 test("access links establish a secure cookie and remove the token from the URL", async () => {
@@ -167,7 +167,7 @@ test("cross-origin writes are rejected before agent execution", async () => {
     body: JSON.stringify({ agent: "pi", mode: "plan", message: "ignored" }),
   });
   assert.equal(response.status, 403);
-  assert.deepEqual(await response.json(), { error: "Origine refusée", code: "origin_denied" });
+  assert.deepEqual(await response.json(), { error: "Origin refused", code: "origin_denied" });
 });
 
 test("a missing Codex rollout starts a fresh session", async () => {
@@ -232,7 +232,7 @@ test("system overview and backups expose measured, redacted data", async () => {
   assert.equal(overview.status, 200);
   const body = await overview.json();
   assert.equal(body.ok, true);
-  assert.equal(body.database.schemaVersion, 1);
+  assert.equal(body.database.schemaVersion, 3);
   assert.ok(body.services.some((service) => service.id === "orbit" && service.status === "operational"));
   assert.doesNotMatch(JSON.stringify(body), new RegExp(token));
   assert.doesNotMatch(JSON.stringify(body), /ORBIT_ACCESS_TOKEN|orbit-test-data/);
@@ -242,6 +242,43 @@ test("system overview and backups expose measured, redacted data", async () => {
   const backupBody = await backup.json();
   assert.match(backupBody.backup.filename, /^orbit-.*\.sqlite$/);
   assert.ok(backupBody.backup.bytes > 0);
+});
+
+test("agent registry creates and versions definitions through the protected API", async () => {
+  const headers = await authenticatedHeaders();
+  const definition = {
+    name: "Atlas", role: "Strategy Architect", description: "Structure research.",
+    instructions: "Build a repeatable plan.", provider: "openai-codex", model: "gpt-5.4",
+    tools: ["filesystem", "web"], skills: [], color: "violet",
+    budget: { maxTokens: 50000, maxCostUsd: 0, maxDurationMinutes: 20, maxRetries: 1 },
+    policy: { filesystem: "read", network: "allow", trading: "deny" },
+  };
+  const createdResponse = await fetch(`${origin}/orbit/api/agents`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(definition),
+  });
+  assert.equal(createdResponse.status, 201);
+  const created = (await createdResponse.json()).agent;
+  assert.equal(created.version, 1);
+  assert.equal(created.policy.trading, "deny");
+
+  const revisedResponse = await fetch(`${origin}/orbit/api/agents/${created.id}/versions`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...definition, instructions: "Build and then verify a reproducible plan." }),
+  });
+  assert.equal(revisedResponse.status, 201);
+  assert.equal((await revisedResponse.json()).agent.version, 2);
+
+  const historyResponse = await fetch(`${origin}/orbit/api/agents/${created.id}/versions`, { headers });
+  assert.equal(historyResponse.status, 200);
+  const history = await historyResponse.json();
+  assert.deepEqual(history.versions.map((version) => version.version), [2, 1]);
+  assert.equal(history.versions[1].instructions, definition.instructions);
+
+  const invalidResponse = await fetch(`${origin}/orbit/api/agents`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...definition, policy: { ...definition.policy, trading: "allow" } }),
+  });
+  assert.equal(invalidResponse.status, 400);
 });
 
 test("revoked browser sessions can no longer access the API", async () => {

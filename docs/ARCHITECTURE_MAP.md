@@ -1,214 +1,214 @@
-# Orbit OS — cartographie de l’existant
+# Orbit OS — mapping of the existing
 
-État observé le 17 juillet 2026, actualisé avec le moteur Vibe de Phase 2. Cette carte décrit ce qui existe réellement, ce qui est simulé et ce qui peut être réutilisé. Elle ne constitue pas une promesse fonctionnelle.
+State observed on July 17, 2026, updated with the Phase 2 Vibe engine. This map describes what actually exists, what is simulated, and what can be reused. It does not constitute a functional promise.
 
-## 1. Résumé exécutif
+## 1. Executive summary
 
-Orbit possède désormais un premier noyau serveur persistant : sessions d’accès révocables, conversations PI/Codex, jobs, événements, décisions, audit, migrations et sauvegardes SQLite. La page System et le chat lisent ces données réelles. Les autres surfaces métier restent majoritairement alimentées par des constantes ou `localStorage` et doivent encore être remplacées phase par phase.
+Orbit now has a first persistent server core: revocable access sessions, PI/Codex conversations, jobs, events, decisions, auditing, migrations and SQLite backups. The System page and chat read this real data. The other business surfaces remain mainly powered by constants or `localStorage` and must still be replaced phase by phase.
 
-Vibe-Trading est désormais installé comme moteur privé épinglé, isolé et persistant. Orbit expose une frontière BFF allowlistée pour sa santé, ses sessions, son chat SSE, ses skills, ses presets, ses uploads et ses runs. Le provider `openai-codex` est autorisé via l’abonnement ChatGPT/Codex, sans clé API, et une première recherche réelle avec streaming a été validée.
+Vibe-Trading is now installed as a pinned, isolated and persistent private engine. Orbit exposes an allowlisted BFF border for its health, its sessions, its SSE chat, its skills, its presets, its uploads and its runs. The `openai-codex` provider is authorized via the ChatGPT/Codex subscription, without an API key, and a first real search with streaming has been validated.
 
-Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Déclaré obsolète et supprimable par le propriétaire, il a été retiré transactionnellement après la bascule et le test de redémarrage du chemin public Orbit.
+Hermes occupied several services, containers, tunnels and network routes. Declared obsolete and removeable by the owner, it was transactionally removed after the Orbit public path failover and restart test.
 
-## 2. Dépôts et responsabilités
+## 2. Deposits and responsibilities
 
-| Emplacement | État | Rôle futur |
+| Location | State | Future role |
 |---|---|---|
-| `/home/codex/agentic-os` | dépôt Git public, Phase 1 sur `main`, Phase 2 sur branche dédiée | source de vérité Orbit |
-| `/opt/vibe-trading` | release upstream `86f6012e…` et virtualenv épinglés | moteur Vibe de production, code root-owned |
-| `/var/lib/vibe-trading` | HOME et runtime privés de `vibe-trading` | sessions, OAuth, mémoire, runs, uploads et artifacts durables |
-| `/root/Vibe-Trading` | dépôt upstream d’audit, non exécuté | inspection et comparaison amont uniquement |
-| `/home/codex/Agentic OS` | dépôt presque vide | doublon à retirer après vérification |
-| `/opt/agentic-os` | Caddy, MCP et infrastructure non-Hermes conservés ; arbres Hermes/Grafana supprimés | conserver l’infrastructure utile à Orbit |
-| `/opt/hermes-*`, `/root/.hermes` | supprimés après bascule, restart et validation publique | aucun rôle futur |
+| `/home/codex/agentic-os` | public Git repository, Phase 1 on `main`, Phase 2 on dedicated branch | Orbit source of truth |
+| `/opt/vibe-trading` | release upstream `86f6012e…` and virtualenv pinned | production Vibe engine, root-owned code |
+| `/var/lib/vibe-trading` | `vibe-trading` private HOME and runtime | sessions, OAuth, memory, runs, uploads and durable artifacts |
+| `/root/Vibe-Trading` | upstream audit filing, not executed | upstream inspection and comparison only |
+| `/home/codex/Agentic OS` | depot almost empty | duplicate to be removed after verification |
+| `/opt/agentic-os` | Caddy, MCP and non-Hermes infrastructure retained; Hermes/Grafana trees removed | preserve the infrastructure useful to Orbit |
+| `/opt/hermes-*`, `/root/.hermes` | deleted after switch, restart and public validation | no future role |
 
-## 3. Orbit actuel
+## 3. Current orbit
 
 ### 3.1 Stack
 
 - React 19, TypeScript 5.8, Vite 6, React Router 7.
-- Serveur Node natif modulaire sous `server/`, avec `server.mjs` comme point d’entrée minimal.
-- SQLite natif Node 22 en WAL/FULL, migrations SQL ordonnées et données canoniques sous `/var/lib/orbit-os`.
-- Le jeton permanent initialise une session opaque de 30 jours ; seul son hash SHA-256 est conservé et la session est révocable.
-- Build statique servi sous `/orbit/`.
-- Service systemd `orbit-os.service`, lié uniquement à `127.0.0.1:4173` et durci par sandbox systemd.
-- Vingt-six tests Orbit couvrent aussi la frontière Vibe, son allowlist, les limites, la redaction et le relais SSE. Il n’existe pas encore de test end-to-end navigateur automatisé.
+- Modular native Node server under `server/`, with `server.mjs` as minimal entry point.
+- Node 22 native SQLite in WAL/FULL, ordered SQL migrations and canonical data under `/var/lib/orbit-os`.
+- The permanent token initializes an opaque session of 30 days; only its SHA-256 hash is retained and the session is revocable.
+- Static build served under `/orbit/`.
+- systemd service `orbit-os.service`, linked only to `127.0.0.1:4173` and hardened by systemd sandbox.
+- Twenty-six Orbit tests also cover the Vibe border, its allowlist, limits, redaction and SSE relay. There is no automated end-to-end browser testing yet.
 
-### 3.2 Matrice réel / local / simulé
+### 3.2 Real / local / simulated matrix
 
-| Surface | État réel | Destination produit |
+| Area | Actual Condition | Product destination |
 |---|---|---|
-| PI Chat | appel réel au CLI PI, conversation/messages/job persistés, outils en lecture seule | remplacer plus tard par un runtime d’orchestration observable |
-| Codex Chat | appel réel isolé, conversation persistée et récupération des rollouts disparus | conserver uniquement comme atelier de modification du dashboard |
-| Agents | CRUD `localStorage`, modèles et outils codés en dur | registre réel des agents Vibe, profils, budgets et politiques |
-| Skills | page globale encore locale ; catalogue réel de 87 skills visible dans le cockpit Vibe | unifier skills Vibe et Orbit avec policies |
-| Cron | éditeur visuel local, proposition PI déterministe par mots-clés | workflows persistants réellement exécutés et repris après redémarrage |
-| Kanban | cartes locales déplaçables | vue dérivée des objectifs, expériences, décisions et incidents |
-| Files | quatre faux fichiers édités dans le navigateur | explorateur borné du VPS, versions, uploads et artifacts réels |
-| Knowledge | graphe statique | index des stratégies, runs, hypothèses, agents, fichiers et mémoires |
-| Memory | quatre entrées locales | mémoire Vibe durable avec provenance, correction et recherche |
-| Artifacts | liste statique | rapports, code, métriques, journaux et exports réels |
-| Vibe | cockpit réel : santé/provider, sessions, messages, SSE, 87 skills, 30 presets, uploads et runs | étendre les détails d’artifacts en Phase 3/4 |
-| Trading | données codées en dur, TradingView externe uniquement | paper trading, comptes, positions, ordres, risques et live borné |
-| Switchboard | topologie locale modifiable | état réel des services et connexions, sans faux interrupteurs |
-| System | santé Orbit/SQLite/PI/Codex/Vibe, métriques et sauvegarde réelles | étendre avec diagnostics et actions strictement allowlistées |
-| Activity | ledger append-only présent en base et résumé dans System ; page dédiée encore statique | connecter la page complète au ledger |
-| Usage | coûts et tokens statiques | métriques réelles par agent, modèle, run et expérience |
-| Settings | apparence locale ; connexions/permissions simulées | réglages persistants, secrets côté serveur, politiques et budgets |
-| Human Inbox | trois demandes en mémoire React | file persistante de décisions et confirmations exceptionnelles |
-| Observatory | agrégation de toutes les données fictives | cockpit temps réel issu des sources canoniques |
+| PI Cat | real call to PI CLI, persisted conversation/messages/job, read-only tools | replace later with an observable orchestration runtime |
+| Codex Cat | isolated real call, persisted conversation and recovery of missing rollouts | keep only as dashboard modification workshop |
+| Agents | CRUD `localStorage`, hardcoded templates and tools | Real Vibe Agent Registry, Profiles, Budgets and Policies |
+| Skills | global page still local; real catalog of 87 skills visible in the Vibe cockpit | unify skills Vibe and Orbit with policies |
+| Cron | local visual editor, deterministic PI proposal by keywords | persistent workflows actually executed and resumed after restart |
+| Kanban | movable local maps | view derived from objectives, experiences, decisions and incidents |
+| Files | four fake files edited in the browser | bounded VPS explorer, versions, uploads and real artifacts |
+| Knowledge | static graph | index of strategies, runs, hypotheses, agents, files and memories |
+| Memory | four local entries | Durable Vibe memory with provenance, correction and search |
+| Artifacts | static list | reports, code, metrics, logs and real exports |
+| Vibe | real cockpit: health/provider, sessions, messages, SSE, 87 skills, 30 presets, uploads and runs | expand artifact details in Phase 3/4 |
+| Trading | hardcoded data, external TradingView only | paper trading, accounts, positions, orders, risks and live bounded |
+| Switchboard | editable local topology | real state of services and connections, without false switches |
+| System | Orbit/SQLite/PI/Codex/Vibe health, real-world metrics and backup | extend with strictly allowlisted diagnostics and actions |
+| Activity | ledger append-only present in base and summary in System; dedicated page still static | connect full page to ledger |
+| Usage | costs and static tokens | real metrics by agent, model, run and experience |
+| Settings | local appearance; simulated logins/permissions | persistent settings, server-side secrets, policies and budgets |
+| Human Inbox | three requests in React memory | persistent queue of exceptional decisions and confirmations |
+| Observatory | aggregation of all fictitious data | real-time cockpit from canonical sources |
 
-### 3.3 Passerelle serveur existante
+### 3.3 Existing server gateway
 
-Le point d’entrée `server.mjs` assemble les modules de `server/`, qui fournissent :
+The `server.mjs` entry point assembles the modules of `server/`, which provide:
 
-- `GET /healthz` et `GET /readyz`, avec alias sous `/orbit/` ;
+- `GET /healthz` and `GET /readyz`, with alias under `/orbit/`;
 - `GET /api/health` ;
-- `POST /api/chat` pour PI ou Codex ;
-- limitation à une requête simultanée par agent ;
-- contrôle d’origine ;
-- taille de requête et de sortie bornée ;
-- timeout des processus ;
-- en-têtes de sécurité communs et gestion des erreurs de requête ;
-- transmission des prompts par stdin pour éviter leur présence dans les arguments journalisés ;
-- sandbox systemd différente pour les modes Plan et Build de Codex.
-- SQLite, migrations, repositories et sauvegardes cohérentes ;
-- sessions révocables et conversion du cookie Phase 0 ;
-- conversations/messages persistants sans identifiant runtime dans le navigateur ;
-- jobs, événements, décisions, audit et réconciliation des jobs interrompus ;
-- politiques codées par niveau de risque ;
-- API System et Activity expurgées.
+- `POST /api/chat` for PI or Codex;
+- limitation to one simultaneous request per agent;
+- original control;
+- bounded query and output size;
+- process timeouts;
+- common security headers and query error handling;
+- transmission of prompts by stdin to avoid their presence in logged arguments;
+- different systemd sandbox for Codex Plan and Build modes.
+- SQLite, migrations, repositories and consistent backups;
+- revocable sessions and conversion of the Phase 0 cookie;
+- persistent conversations/messages without runtime identifier in the browser;
+- jobs, events, decisions, audit and reconciliation of interrupted jobs;
+- policies coded by risk level;
+- System and Activity API redacted.
 
 Limites :
 
-- aucune diffusion progressive SSE ni file de workers ;
-- les jobs interrompus sont réconciliés en échec, mais pas encore repris ;
-- aucune API Files, Agents, Workflow, Usage ou Audit ;
-- le ledger existe, mais sa page Activity n’est pas encore branchée ;
-- les conversations Phase 0 restées uniquement dans le `localStorage` ne sont pas importées automatiquement.
+- no SSE progressive diffusion or worker queue;
+- interrupted jobs are reconciled to failure, but not yet resumed;
+- no Files, Agents, Workflow, Usage or Audit API;
+- the ledger exists, but its Activity page is not yet connected;
+- Phase 0 conversations remaining only in `localStorage` are not automatically imported.
 
-## 4. Vibe-Trading actuel
+## 4. Current Vibe-Trading
 
-### 4.1 État de déploiement
+### 4.1 Deployment Status
 
-- Révision upstream exacte `86f6012e00120e3fa5c3f0e15be8c94abe732dcf`, installée depuis le lockfile avec hashes.
-- Utilisateur système `vibe-trading`, code root-owned, HOME/runtime privé.
-- Service systemd durci, actif et lié uniquement à `127.0.0.1:8899`.
-- Provider `openai-codex`, modèle `openai-codex/gpt-5.4`, sans `OPENAI_API_KEY`.
-- OAuth autorisé : `/health` et `/ready` répondent 200 ; le smoke test réel a retourné `VIBE_PHASE_2_OK` via Orbit et SSE.
-- Outils shell et scheduler désactivés ; aucun broker ni live trading configuré.
-- Persistance validée par création, restart, relecture puis suppression d’une session de probe.
+- Exact upstream revision `86f6012e00120e3fa5c3f0e15be8c94abe732dcf`, installed from the lockfile with hashes.
+- System user `vibe-trading`, code root-owned, HOME/runtime private.
+- Hardened systemd service, active and linked only to `127.0.0.1:8899`.
+- Provider `openai-codex`, model `openai-codex/gpt-5.4`, without `OPENAI_API_KEY`.
+- OAuth authorized: `/health` and `/ready` respond 200; the actual smoke test returned `VIBE_PHASE_2_OK` via Orbit and SSE.
+- Shell and scheduler tools disabled; no broker or live trading configured.
+- Persistence validated by creation, restart, rereading then deletion of a probe session.
 
-### 4.2 Capacités réutilisables
+### 4.2 Reusable capacities
 
-- API FastAPI avec authentification distante et SSE.
-- Sessions et messages durables, écritures `flush + fsync`.
-- 87 skills finance réellement retournés par l’API déployée.
-- 30 presets de swarms multi-agents réellement retournés par l’API déployée.
-- DAG : tâches parallèles par couche, dépendances entre couches, retries, timeout, annulation, reprise et réconciliation des runs abandonnés.
-- Comptage des tokens par worker et au niveau du swarm.
-- Artifacts isolés par run et par agent.
-- 452 facteurs Alpha Zoo et bancs de validation.
-- Backtests multi-marchés, Monte Carlo, bootstrap et walk-forward.
-- Registre durable d’hypothèses lié aux runs.
-- Shadow Account et analyse de journaux de trading.
-- 10 familles de connecteurs : Alpaca, Binance, Dhan, Futu, IBKR, Longbridge, OKX, Robinhood, Shoonya et Tiger.
-- Profils read-only, paper et live selon les garanties disponibles chez chaque broker.
+- FastAPI API with remote authentication and SSE.
+- Durable sessions and messages, writes `flush + fsync`.
+- 87 finance skills actually returned by the deployed API.
+- 30 multi-agent swarm presets actually returned by the deployed API.
+- DAG: parallel tasks per layer, dependencies between layers, retries, timeout, cancellation, resumption and reconciliation of abandoned runs.
+- Counting of tokens per worker and at the swarm level.
+- Artifacts isolated per run and per agent.
+- 452 Alpha Zoo factors and validation benches.
+- Multi-market backtests, Monte Carlo, bootstrap and walk-forward.
+- Durable register of hypotheses linked to runs.
+- Shadow Account and analysis of trading logs.
+- 10 families of connectors: Alpaca, Binance, Dhan, Futu, IBKR, Longbridge, OKX, Robinhood, Shoonya and Tiger.
+- Read-only, paper and live profiles according to the guarantees available with each broker.
 
 ### 4.3 Persistance Vibe
 
-Le runtime déployé est réparti explicitement sous `/var/lib/vibe-trading` :
+The deployed runtime is distributed explicitly under `/var/lib/vibe-trading`:
 
-- `.vibe-trading/sessions.db` et son WAL pour les sessions/messages ;
-- `memory/MEMORY.md` et entrées Markdown ;
+- `.vibe-trading/sessions.db` and its WAL for sessions/messages;
+- `memory/MEMORY.md` and Markdown entries;
 - `hypotheses.json` ;
-- `runtime/runs`, `runtime/sessions` et `runtime/uploads` reliés aux chemins natifs du moteur ;
-- `runtime/swarm-runs` pour les équipes multi-agents ;
-- `live/<broker>/mandate.json`, consentements, compteur journalier et HALT ;
-- `live/audit.jsonl`, journal append-only des actions live.
+- `runtime/runs`, `runtime/sessions` and `runtime/uploads` connected to the engine's native paths;
+- `runtime/swarm-runs` for multi-agent teams;
+- `live/<broker>/mandate.json`, consents, daily counter and HALT;
+- `live/audit.jsonl`, append-only journal of live actions.
 
-Les chemins relatifs amont sont reliés au runtime canonique par l’installeur idempotent ; une mise à jour de code ne remplace donc aucune donnée.
+Upstream relative paths are linked to the canonical runtime by the idempotent installer; a code update therefore does not replace any data.
 
-### 4.4 Sécurité live déjà disponible
+### 4.4 Live Security already available
 
-Le canal live est structurellement séparé des outils ordinaires :
+The live channel is structurally separated from ordinary tools:
 
-- une proposition agent ne donne aucune autorité ;
-- seul un endpoint de surface privilégié peut écrire un mandat ;
-- mandat immuable, expirant et associé au consentement utilisateur ;
-- plafonds : financement, taille d’ordre, exposition, levier, instruments et trades/jour ;
-- univers autorisé, seuils de liquidité/capitalisation et symboles exclus ;
-- kill switch global ou par broker, indépendant du LLM ;
-- contrôles fail-closed avant tout ordre ;
+- an agent proposition does not give any authority;
+- only a privileged surface endpoint can write a mandate;
+- immutable mandate, expiring and associated with user consent;
+- ceilings: financing, order size, exposure, leverage, instruments and trades/day;
+- authorized universe, liquidity/capitalization thresholds and excluded symbols;
+- global kill switch or by broker, independent of the LLM;
+- fail-closed checks before any order;
 - audit redacted append-only ;
-- annulation autorisée comme action de réduction de risque ;
-- flatten optionnel lors d’un halt.
+- cancellation authorized as a risk reduction action;
+- optional flatten during a stop.
 
-Le runner live persistant n’est exposé actuellement que par le profil Robinhood MCP. Plusieurs autres brokers acceptent des ordres live bornés, mais n’ont pas encore le même runner managé.
+The persistent live runner is currently only exposed through the Robinhood MCP profile. Several other brokers accept limited live orders, but do not yet have the same managed runner.
 
-### 4.5 Écart avec la boucle d’apprentissage voulue
+### 4.5 Deviation from the desired learning loop
 
-Vibe sait déjà : générer une stratégie, lancer un backtest, valider hors échantillon, comparer des résultats, mémoriser une hypothèse et exécuter plusieurs analystes en parallèle.
+Vibe already knows: generate a strategy, launch a backtest, validate out of sample, compare results, memorize a hypothesis and run several analysts in parallel.
 
-Il ne sait pas encore piloter un programme expérimental durable de bout en bout : générations successives, variantes concurrentes, dataset figé, budget global, fonction de score, élimination, champion/challenger, arrêt automatique, reprise après crash et promotion contrôlée. Cette couche appartient au futur orchestrateur Orbit, au-dessus des primitives Vibe.
+He does not yet know how to manage a sustainable experimental program from start to finish: successive generations, competing variants, fixed dataset, overall budget, score function, elimination, champion/challenger, automatic shutdown, recovery after crash and controlled promotion. This layer belongs to the future Orbit orchestrator, above the Vibe primitives.
 
 ## 5. Infrastructure VPS
 
-### 5.1 Ressources
+### 5.1 Resources
 
-- 2 vCPU, 7,8 Gio RAM, aucun swap.
+- 2 vCPU, 7.8 GiB RAM, no swap.
 - Environ 50 Gio de disque libres.
-- Node 22, Python 3.12, Docker actif.
+- Node 22, Python 3.12, active Docker.
 
-La concurrence doit donc être bornée. Quatre workers LLM ne signifient pas quatre backtests CPU lourds simultanés.
+Competition must therefore be limited. Four LLM workers do not mean four simultaneous heavy CPU backtests.
 
-### 5.2 Chemin public actuel
+### 5.2 Current public road
 
 ```text
 Internet
-  → domaine ngrok réservé
+  → reserved ngrok domain
   → ngrok-orbit.service
   → Caddy 127.0.0.1:18080
       ├─ / → redirection /orbit/
       ├─ /orbit/* → Orbit 127.0.0.1:4173
-      ├─ /healthz et /readyz → Orbit
-      └─ toute autre route → 404
+      ├─ /healthz and /readyz → Orbit
+      └─ every other route → 404
 ```
 
-Le domaine permanent est `https://trailside-capacity-worst.ngrok-free.dev`. Les tunnels Cloudflare et ngrok Hermes concurrents sont supprimés du VPS. Le tunnel Orbit est l’unique tunnel applicatif actif.
+The permanent domain is `https://trailside-capacity-worst.ngrok-free.dev`. Competing Cloudflare and ngrok Hermes tunnels are removed from the VPS. The Orbit tunnel is the only active application tunnel.
 
-### 5.3 Services obsolètes traités en Phase 0
+### 5.3 Obsolete services processed in Phase 0
 
-- `hermes-gateway.service`, `hermes-operator-ui.service` et `hermes-operator-v4-preview.service` sont arrêtés, désactivés et retirés de systemd ;
-- `ngrok-hermes-operator-dev.service`, `cloudflared-hermes-webui.service` et le doublon `cloudflared.service` sont arrêtés, désactivés et retirés ;
-- les conteneurs, images et réseaux Docker Hermes sont supprimés ;
-- les routes Grafana, chat et Hermes ont été retirées de Caddy ;
-- les unités système, l’unité utilisateur root et le superviseur PM2 Hermes sont supprimés ;
-- les anciens arbres `/opt/hermes-*`, `/opt/agentic-os/hermes*`, `/root/.hermes`, les worktrees/sources root et Grafana sont supprimés ;
-- plusieurs gigaoctets ont été libérés ; aucune donnée Hermes n’était à conserver selon le propriétaire.
+- `hermes-gateway.service`, `hermes-operator-ui.service` and `hermes-operator-v4-preview.service` are stopped, disabled and removed from systemd;
+- `ngrok-hermes-operator-dev.service`, `cloudflared-hermes-webui.service` and duplicate `cloudflared.service` are stopped, disabled and removed;
+- Docker Hermes containers, images and networks are deleted;
+- the Grafana, Cat and Hermes routes have been removed from Caddy;
+- the system units, the root user unit and the PM2 Hermes supervisor are deleted;
+- the old trees `/opt/hermes-*`, `/opt/agentic-os/hermes*`, `/root/.hermes`, the root and Grafana worktrees/sources are deleted;
+- several gigabytes have been freed; no Hermes data was to be kept according to the owner.
 
-### 5.4 État sécurité après Phase 0
+### 5.4 Safety status after Phase 0
 
-- Orbit et Caddy écoutent uniquement sur loopback ; Hermes Control ne publie plus `10275`.
-- Le tunnel ngrok principal est une unité systemd unique, activée au boot, avec configuration root en mode `0600`.
-- Les unités legacy qui contenaient des références de tunnel et leurs copies temporaires de rollback ont été supprimées du VPS.
-- La révocation distante des anciens tokens Cloudflare/ngrok reste à confirmer depuis les comptes fournisseurs ; aucune valeur de token n’est stockée dans Git.
-- Le pare-feu hôte reste inactif et la politique INPUT permissive. La surface TCP observée est néanmoins limitée à SSH, Caddy/Orbit en loopback et les services système documentés ; l’activation d’un pare-feu devra préserver SSH et Tailscale.
+- Orbit and Caddy listen only on loopback; Hermes Control no longer publishes `10275`.
+- The main ngrok tunnel is a single systemd unit, activated at boot, with root configuration in `0600` mode.
+- Legacy units that contained tunnel references and their temporary rollback copies have been removed from the VPS.
+- Remote revocation of old Cloudflare/ngrok tokens remains to be confirmed from supplier accounts; no token value is stored in Git.
+- The host firewall remains inactive and the INPUT policy permissive. The TCP surface observed is nevertheless limited to SSH, Caddy/Orbit in loopback and the documented system services; activating a firewall should preserve SSH and Tailscale.
 
-## 6. Décisions d’architecture retenues
+## 6. Architectural decisions retained
 
-1. Orbit reste l’unique surface publique et l’unique source de vérité produit.
-2. Vibe reste un moteur localhost privé, versionné par SHA et appelé via une passerelle serveur Orbit.
-3. Aucun secret Vibe/broker/provider n’est envoyé au navigateur.
-4. SQLite stocke le control-plane Orbit ; les gros artifacts restent sur disque avec métadonnées et checksums en base.
-5. Les formats durables natifs de Vibe sont conservés ; Orbit les indexe au lieu de les dupliquer aveuglément.
-6. Toute action est un job durable avec statut, auteur, budget, timestamps, résultat et événements.
-7. Recherche, lecture et paper trading sont autonomes dans les budgets définis.
-8. Dépense IA inhabituelle, changement d’infrastructure risqué et live trading passent par une politique explicite et la Human Inbox.
-9. Codex ne fait pas partie des agents de trading : il reste réservé au développement d’Orbit.
-10. Hermes et Grafana ont été retirés après bascule du proxy, test de restart et vérification du rollback Orbit.
+1. Orbit remains the only public surface and the only source of product truth.
+2. Vibe remains a private localhost engine, versioned by SHA and called via an Orbit server gateway.
+3. No Vibe/broker/provider secrets are sent to the browser.
+4. SQLite stores the Orbit control-plane; large artifacts remain on disk with metadata and checksums in the database.
+5. Vibe's native durable formats are retained; Orbit indexes them instead of blindly duplicating them.
+6. Every action is a sustainable job with status, author, budget, timestamps, result and events.
+7. Research, reading and paper trading are autonomous within defined budgets.
+8. Unusual AI spending, risky infrastructure changes and live trading require an explicit policy and the Human Inbox.
+9. Codex is not one of the trading agents: it remains reserved for the development of Orbit.
+10. Hermes and Grafana were removed after proxy switch, restart test and Orbit rollback check.
 
-## 7. Cible logique
+## 7. Logical target
 
 ```text
 Navigateur
@@ -220,7 +220,7 @@ Navigateur
       ├─ jobs + workflows + inbox
       ├─ files + artifacts + audit + usage
       ├─ experiment orchestrator
-      └─ proxy Vibe authentifié
+      └─ authenticated Vibe proxy
            → Vibe FastAPI :8899 (loopback)
                ├─ sessions / goals / memory
                ├─ swarms / skills / tools

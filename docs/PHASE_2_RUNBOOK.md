@@ -2,15 +2,15 @@
 
 ## Invariants
 
-- Vibe écoute uniquement sur `127.0.0.1:8899`.
-- Le navigateur passe toujours par `/orbit/api/vibe/*`.
-- Le code exécuté correspond au SHA consigné dans `deploy/install-vibe.sh`.
-- Les outils shell restent désactivés.
-- Le provider `openai-codex` utilise OAuth ChatGPT/Codex, sans clé API OpenAI.
-- L’état durable vit sous `/var/lib/vibe-trading` et n’est pas supprimé lors
-  d’une mise à jour ou d’un rollback.
-- Le dotenv canonique `~/.vibe-trading/.env` reflète le provider réellement
-  exécuté ; les secrets de service restent sous `/etc/vibe-trading`.
+- Vibe only listens on `127.0.0.1:8899`.
+- The browser always goes through `/orbit/api/vibe/*`.
+- The executed code matches the SHA logged in `deploy/install-vibe.sh`.
+- Shell tools remain disabled.
+- The `openai-codex` provider uses OAuth ChatGPT/Codex, without an OpenAI API key.
+- The durable state lives under `/var/lib/vibe-trading` and is not deleted when
+an update or a rollback.
+- The canonical dotenv `~/.vibe-trading/.env` actually reflects the provider
+executed; service secrets remain under `/etc/vibe-trading`.
 
 ## Installation idempotente
 
@@ -19,18 +19,18 @@ sudo /home/codex/agentic-os/deploy/install-vibe.sh
 sudo systemctl restart orbit-os
 ```
 
-## Autorisation OAuth
+##OAuth authorization
 
-Cette commande doit être exécutée dans un terminal interactif une fois :
+This command must be run in an interactive terminal once:
 
 ```text
 sudo -u vibe-trading -H /opt/vibe-trading/venv/bin/vibe-trading provider login openai-codex
 ```
 
-Elle affiche le parcours d’autorisation géré par `oauth-cli-kit`. Aucun token
-obtenu ne doit être copié dans Git, un ticket ou un message.
+It displays the authorization path managed by `oauth-cli-kit`. No tokens
+obtained should not be copied into Git, a ticket or a message.
 
-## Vérifications
+## Verifications
 
 ```text
 systemctl is-active vibe-trading orbit-os
@@ -40,21 +40,21 @@ curl -fsS http://127.0.0.1:8899/ready
 sudo -u vibe-trading -H /opt/vibe-trading/venv/bin/vibe-trading provider status
 ```
 
-Après OAuth, `/ready` doit répondre 200. Avant OAuth, le code 503 avec une
-raison non sensible est attendu et Orbit doit afficher « OAuth requis ».
+After OAuth, `/ready` should respond 200. Before OAuth, the code 503 with a
+Non-sensitive reason is expected and Orbit should show "OAuth Required".
 
-## Mise à jour
+## Update
 
-Modifier d’abord le SHA dans le PRD et l’installeur après audit amont. Relancer
-l’installeur crée une nouvelle release et un nouveau virtualenv ; les données ne
-bougent pas. Ne jamais suivre une branche mobile directement en production.
+First modify the SHA in the PRD and the installer after upstream audit. Relaunch
+the installer creates a new release and a new virtualenv; the data does not
+not move. Never follow a mobile branch directly into production.
 
 ## Rollback
 
-1. arrêter et désactiver `vibe-trading.service` ;
-2. restaurer l’ancienne unité Orbit si la frontière BFF doit être retirée ;
-3. conserver `/var/lib/vibe-trading` et `/etc/vibe-trading` ;
-4. vérifier que le port 8899 est fermé et que le reste d’Orbit reste prêt.
+1. stop and disable `vibe-trading.service`;
+2. restore the old Orbit unit if the BFF boundary needs to be removed;
+3. keep `/var/lib/vibe-trading` and `/etc/vibe-trading`;
+4. Verify that port 8899 is closed and the rest of Orbit remains ready.
 
 ```text
 sudo systemctl disable --now vibe-trading

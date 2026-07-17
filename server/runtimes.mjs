@@ -21,7 +21,7 @@ export function runProcess(command, args, { workspace, timeoutMs = 10 * 60 * 100
     const timeout = setTimeout(() => child.kill("SIGTERM"), timeoutMs);
     child.on("close", (code, signal) => {
       clearTimeout(timeout);
-      if (outputSize > maxOutput) return rejectRun(new Error("La réponse de l’agent dépasse la limite autorisée"));
+      if (outputSize > maxOutput) return rejectRun(new Error("Agent response exceeds allowed limit"));
       resolveRun({ code, signal, stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8") });
     });
   });
@@ -47,13 +47,13 @@ export function createRuntimeBridge({ workspace, runner = runProcess }) {
   async function chatWithPi({ message, mode, sessionId }) {
     const safeSessionId = /^[0-9a-f-]{36}$/i.test(sessionId || "") ? sessionId : randomUUID();
     const systemPrompt = mode === "build"
-      ? "Tu es PI, orchestrateur du VPS. Cette passerelle est volontairement en lecture seule : inspecte et propose, puis indique clairement les modifications à déléguer à Codex."
-      : "Tu es PI, orchestrateur du VPS. Travaille en lecture seule, observe l’état réel et réponds de façon concise et vérifiable.";
+      ? "You are PI, orchestrator of the VPS. This gateway is intentionally read-only: inspect and suggest, then clearly identify changes to delegate to Codex."
+      : "You are PI, orchestrator of the VPS. Work in read-only mode, observe the actual state, and respond concisely and verifiably.";
     const result = await runner("sudo", [
       "-n", "pi", "--print", "--approve", "--session-id", safeSessionId,
       "--tools", "read,grep,find,ls", "--append-system-prompt", systemPrompt,
     ], { workspace, input: `[Mode ${mode}] ${message}\n` });
-    if (result.code !== 0) throw new Error(result.stderr.trim() || `PI s’est arrêté avec le code ${result.code}`);
+    if (result.code !== 0) throw new Error(result.stderr.trim() || `PI stopped with code ${result.code}`);
     return { reply: result.stdout.trim(), sessionId: safeSessionId, sessionReset: false, safety: "read-only" };
   }
 
@@ -84,7 +84,7 @@ export function createRuntimeBridge({ workspace, runner = runProcess }) {
     }
     const parsed = parseCodexOutput(result.stdout);
     if (result.code !== 0 || !parsed.reply) {
-      const detail = result.stderr.trim() || result.stdout.trim() || `Codex s’est arrêté avec le code ${result.code}`;
+      const detail = result.stderr.trim() || result.stdout.trim() || `Codex stopped with code ${result.code}`;
       throw new Error(detail.slice(-1200));
     }
     return { reply: parsed.reply, sessionId: parsed.sessionId || requestedSessionId, sessionReset, safety: sandbox };

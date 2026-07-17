@@ -11,7 +11,7 @@ RELEASE="$INSTALL_ROOT/releases/$VIBE_SHA"
 VENV="$INSTALL_ROOT/venvs/$VIBE_SHA"
 
 if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-  echo "install-vibe.sh doit être exécuté en root" >&2
+  echo "install-vibe.sh must be run as root" >&2
   exit 1
 fi
 
@@ -35,7 +35,7 @@ fi
 
 actual_sha=$(git -C "$RELEASE" rev-parse HEAD)
 if [[ "$actual_sha" != "$VIBE_SHA" ]]; then
-  echo "Révision Vibe inattendue: $actual_sha" >&2
+  echo "Unexpected Vibe revision: $actual_sha" >&2
   exit 1
 fi
 
@@ -47,7 +47,7 @@ for mapping in \
   target=${mapping#*:}
   path="$RELEASE/agent/$name"
   if [[ -e "$path" && ! -L "$path" ]]; then
-    echo "Le chemin runtime existe déjà et n'est pas un lien: $path" >&2
+    echo "The runtime path already exists and is not a symlink: $path" >&2
     exit 1
   fi
   ln -sfn "$target" "$path"
@@ -62,9 +62,9 @@ fi
 "$VENV/bin/python" -m pip install --disable-pip-version-check --no-deps -e "$RELEASE"
 "$VENV/bin/python" -c "import api_server, cli, src; print('Vibe imports: ok')"
 
-# L'umask protège les fichiers créés pendant l'installation. Le code et le
-# virtualenv doivent ensuite rester traversables/lisibles par l'utilisateur de
-# service ; les données et credentials demeurent privés sous /var et /etc.
+# The umask protects files created during installation. Code and the virtualenv
+# must remain traversable and readable by the service user; data and credentials
+# remain private under /var and /etc.
 chmod -R a+rX "$RELEASE" "$VENV"
 
 ln -sfn "$RELEASE" "$INSTALL_ROOT/current"
@@ -85,9 +85,9 @@ fi
 chown root:"$SERVICE_USER" "$CONFIG_ROOT/vibe.env"
 chmod 0640 "$CONFIG_ROOT/vibe.env"
 
-# L'API settings lit le dotenv canonique du HOME avant l'environnement du
-# service. Le maintenir évite qu'elle affiche les valeurs de .env.example tout
-# en préservant d'éventuels credentials de sources de données ajoutés plus tard.
+# The settings API reads the canonical HOME dotenv before the service
+# environment. Keeping it prevents .env.example values from being displayed
+# while preserving any data-source credentials added later.
 user_env="$STATE_ROOT/.vibe-trading/.env"
 touch "$user_env"
 upsert_user_env() {
@@ -109,13 +109,13 @@ chmod 0600 "$user_env"
 
 internal_key=$(sed -n 's/^API_AUTH_KEY=//p' "$CONFIG_ROOT/vibe.env" | head -1)
 if [[ -z "$internal_key" ]]; then
-  echo "API_AUTH_KEY absent de $CONFIG_ROOT/vibe.env" >&2
+  echo "API_AUTH_KEY is missing from $CONFIG_ROOT/vibe.env" >&2
   exit 1
 fi
 
 orbit_env="/etc/agentic-os/orbit.env"
 if [[ ! -f "$orbit_env" ]]; then
-  echo "$orbit_env est absent" >&2
+  echo "$orbit_env is missing" >&2
   exit 1
 fi
 tmp_env=$(mktemp "$CONFIG_ROOT/orbit.env.XXXXXX")
@@ -130,5 +130,5 @@ install -o root -g root -m 0644 \
 systemctl daemon-reload
 systemctl enable --now vibe-trading.service
 
-echo "Vibe-Trading $VIBE_SHA installé sur 127.0.0.1:8899"
-echo "OAuth restant: sudo -u $SERVICE_USER -H $INSTALL_ROOT/venv/bin/vibe-trading provider login openai-codex"
+echo "Vibe-Trading $VIBE_SHA installed on 127.0.0.1:8899"
+echo "Remaining OAuth step: sudo -u $SERVICE_USER -H $INSTALL_ROOT/venv/bin/vibe-trading provider login openai-codex"

@@ -1,44 +1,44 @@
-# Phase 2 — plan technique exécutable
+# Phase 2 — executable technical plan
 
-## Tranche A — runtime reproductible
+## Slice A — repeatable runtime
 
-1. Épingler le SHA amont et fournir un installeur idempotent.
-2. Créer l’utilisateur, les répertoires privés et le virtualenv Python.
-3. Installer les dépendances depuis le lockfile avec vérification de hashes.
-4. Relier les répertoires de données natifs Vibe au runtime persistant.
-5. Installer et durcir l’unité systemd loopback-only.
-6. Tester version, bind réseau, droits et restart.
+1. Pin the upstream SHA and provide an idempotent installer.
+2. Create the Python user, home directories and virtualenv.
+3. Install dependencies from the lockfile with hash checking.
+4. Link the Vibe native data directories to the persistent runtime.
+5. Install and harden the systemd loopback-only unit.
+6. Test version, network bind, rights and restart.
 
-## Tranche B — client BFF sécurisé
+## Workstream B — secure BFF client
 
-1. Ajouter un client Vibe Node avec timeout, taille maximale et redaction.
-2. Définir une allowlist de contrats REST distincte d’un proxy générique.
-3. Relayer le SSE avec backpressure et `Last-Event-ID`.
-4. Ajouter santé/capacités, sessions/messages, skills/presets et ressources.
-5. Tester upstream indisponible, timeout, erreur JSON, payload trop grand,
-   route inconnue et fuite de credential.
+1. Add a Vibe Node client with timeout, maximum size and redaction.
+2. Define an allowlist of REST contracts separate from a generic proxy.
+3. Relay the SSE with backpressure and `Last-Event-ID`.
+4. Add health/abilities, sessions/messages, skills/presets and resources.
+5. Test upstream unavailable, timeout, JSON error, payload too large,
+unknown route and credential leak.
 
-## Tranche C — cockpit réel
+## Unit C — real cockpit
 
-1. Remplacer les constantes et le chat `localStorage` de `VibePage`.
-2. Construire un workspace session/sidebar/chat persistant.
-3. Afficher les événements outils et tentative en direct.
-4. Ajouter création, renommage, suppression et annulation.
-5. Brancher skills/presets, uploads et artifacts disponibles.
-6. Soigner les états OAuth requis, offline, reconnecting, empty et failed.
+1. Replace constants and cat `localStorage` with `VibePage`.
+2. Build a persistent session/sidebar/chat workspace.
+3. View live tools and attempt events.
+4. Add creation, renaming, deletion and undo.
+5. Connect available skills/presets, uploads and artifacts.
+6. Take care of OAuth required, offline, reconnecting, empty and failed states.
 
-## Tranche D — autorisation ChatGPT/Codex
+## Workstream D — ChatGPT/Codex authorization
 
-1. Configurer `LANGCHAIN_PROVIDER=openai-codex` sans clé API.
-2. Exécuter le login OAuth sous l’utilisateur de service.
-3. Vérifier l’état provider sans exposer le token.
-4. Envoyer une recherche minimale, recevoir les événements et relire l’historique.
+1. Configure `LANGCHAIN_PROVIDER=openai-codex` without API key.
+2. Run OAuth login under service user.
+3. Check the provider status without exposing the token.
+4. Send minimal search, receive events and replay history.
 
-## Tranche E — validation et production
+## Workstream E — validation and production
 
-1. Exécuter les tests Vibe ciblés auth/session/SSE/security.
-2. Exécuter build et suite Orbit à chaque tranche.
-3. Tester persistance et flux pendant restart Vibe.
-4. Déployer Orbit, puis vérifier les probes internes et publiques.
-5. Scanner code, diff, logs et artefacts Git pour les secrets.
-6. Documenter exploitation/rollback, commit, push et PR.
+1. Run Vibe tests targeted at auth/session/SSE/security.
+2. Run Orbit build and suite at each slice.
+3. Test persistence and flow during restart Vibe.
+4. Deploy Orbit, then check internal and public probes.
+5. Scan code, diff, logs and Git artifacts for secrets.
+6. Document operations/rollback, commit, push, and PR.

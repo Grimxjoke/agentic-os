@@ -16,12 +16,12 @@ export class VibeError extends Error {
   }
 }
 
-function safeMessage(value, fallback = "Vibe-Trading est indisponible") {
+function safeMessage(value, fallback = "Vibe-Trading is unavailable") {
   return String(redact(String(value || fallback))).replace(/\s+/g, " ").slice(-800);
 }
 
 function assertIdentifier(value, kind) {
-  if (!IDENTIFIER.test(value || "")) throw new VibeError(`${kind} invalide`, 400, "invalid_identifier");
+  if (!IDENTIFIER.test(value || "")) throw new VibeError(`Invalid ${kind.toLowerCase()}`, 400, "invalid_identifier");
 }
 
 function readBuffer(req, limit) {
@@ -31,7 +31,7 @@ function readBuffer(req, limit) {
     req.on("data", (chunk) => {
       size += chunk.length;
       if (size > limit) {
-        reject(new VibeError("Fichier trop volumineux", 413, "payload_too_large"));
+        reject(new VibeError("File too large", 413, "payload_too_large"));
         req.destroy();
         return;
       }
@@ -46,7 +46,7 @@ async function readVibeJson(req) {
   try {
     return await readJson(req);
   } catch (error) {
-    throw new VibeError(error?.message || "Corps JSON invalide", 400, "invalid_body");
+    throw new VibeError(error?.message || "Invalid JSON body", 400, "invalid_body");
   }
 }
 
@@ -54,7 +54,7 @@ export function createVibeClient(options = {}) {
   const baseUrl = new URL(options.baseUrl || "http://127.0.0.1:8899");
   const allowedHosts = new Set(["127.0.0.1", "::1", "localhost"]);
   if (baseUrl.protocol !== "http:" || !allowedHosts.has(baseUrl.hostname)) {
-    throw new Error("VIBE_BASE_URL doit cibler un service HTTP loopback");
+    throw new Error("VIBE_BASE_URL must target an HTTP loopback service");
   }
   const apiKey = String(options.apiKey || "");
   const timeoutMs = Number(options.timeoutMs || 12_000);
@@ -74,7 +74,7 @@ export function createVibeClient(options = {}) {
     } catch (error) {
       clearTimeout(timer);
       const timedOut = error?.name === "AbortError";
-      throw new VibeError(timedOut ? "Délai Vibe-Trading dépassé" : "Vibe-Trading ne répond pas", timedOut ? 504 : 502, timedOut ? "vibe_timeout" : "vibe_unavailable");
+      throw new VibeError(timedOut ? "Vibe-Trading deadline exceeded" : "Vibe-Trading not responding", timedOut ? 504 : 502, timedOut ? "vibe_timeout" : "vibe_unavailable");
     }
   }
 
@@ -83,17 +83,17 @@ export function createVibeClient(options = {}) {
       const response = await upstream(path, init, options);
       try {
         const length = Number(response.headers.get("content-length") || 0);
-        if (length > JSON_LIMIT) throw new VibeError("Réponse Vibe-Trading trop volumineuse", 502, "upstream_too_large");
+        if (length > JSON_LIMIT) throw new VibeError("Vibe-Trading response too large", 502, "upstream_too_large");
         const text = await response.text();
-        if (Buffer.byteLength(text) > JSON_LIMIT) throw new VibeError("Réponse Vibe-Trading trop volumineuse", 502, "upstream_too_large");
+        if (Buffer.byteLength(text) > JSON_LIMIT) throw new VibeError("Vibe-Trading response too large", 502, "upstream_too_large");
         let payload = {};
         try {
           payload = text ? JSON.parse(text) : {};
         } catch {
-          throw new VibeError("Réponse Vibe-Trading invalide", 502, "invalid_upstream_response");
+          throw new VibeError("Invalid Vibe-Trading response", 502, "invalid_upstream_response");
         }
         if (!response.ok) {
-          const detail = typeof payload.detail === "string" ? payload.detail : typeof payload.error === "string" ? payload.error : `Erreur Vibe-Trading (${response.status})`;
+          const detail = typeof payload.detail === "string" ? payload.detail : typeof payload.error === "string" ? payload.error : `Vibe-Trading error (${response.status})`;
           throw new VibeError(safeMessage(detail), response.status >= 500 ? 502 : response.status, "vibe_request_failed");
         }
         return payload;
@@ -103,7 +103,7 @@ export function createVibeClient(options = {}) {
     } catch (error) {
       if (error instanceof VibeError) throw error;
       const timedOut = error?.name === "AbortError";
-      throw new VibeError(timedOut ? "Délai Vibe-Trading dépassé" : "Réponse Vibe-Trading interrompue", timedOut ? 504 : 502, timedOut ? "vibe_timeout" : "vibe_unavailable");
+      throw new VibeError(timedOut ? "Vibe-Trading deadline exceeded" : "Vibe-Trading response interrupted", timedOut ? 504 : 502, timedOut ? "vibe_timeout" : "vibe_unavailable");
     }
   }
 
@@ -123,7 +123,7 @@ export function createVibeClient(options = {}) {
       await request("/ready");
     } catch (error) {
       ready = false;
-      reason = safeMessage(error.message, "Provider non prêt");
+      reason = safeMessage(error.message, "Provider not ready");
     }
     const [metadata, settings] = await Promise.all([
       request("/api").catch(() => ({})),
@@ -183,7 +183,7 @@ export function createVibeClient(options = {}) {
 
 function relaySse(res, upstreamResponse) {
   if (!upstreamResponse.ok || !upstreamResponse.body) {
-    throw new VibeError(`Flux Vibe-Trading indisponible (${upstreamResponse.status})`, 502, "vibe_stream_failed");
+    throw new VibeError(`Vibe-Trading feed unavailable (${upstreamResponse.status})`, 502, "vibe_stream_failed");
   }
   res.writeHead(200, securityHeaders({
     "Cache-Control": "no-cache, no-transform",
@@ -208,7 +208,7 @@ export function createVibeApiHandler(client) {
       if (req.method === "GET" && path === "/api/vibe/sessions") return json(res, 200, { ok: true, sessions: await client.sessions.list(url.searchParams.get("limit")) });
       if (req.method === "POST" && path === "/api/vibe/sessions") {
         const body = await readVibeJson(req);
-        const title = String(body.title || "Nouvelle recherche").trim().slice(0, 160);
+        const title = String(body.title || "New search").trim().slice(0, 160);
         return json(res, 201, { ok: true, session: await client.sessions.create({ title, config: body.config || undefined }) });
       }
       if (req.method === "POST" && path === "/api/vibe/upload") {
@@ -227,7 +227,7 @@ export function createVibeApiHandler(client) {
       if (messages && req.method === "POST") {
         const body = await readVibeJson(req);
         const content = String(body.content || "").trim();
-        if (!content || content.length > 5000) throw new VibeError("Le message doit contenir entre 1 et 5 000 caractères", 400, "invalid_message");
+        if (!content || content.length > 5000) throw new VibeError("Message must be between 1 and 5,000 characters", 400, "invalid_message");
         return json(res, 202, { ok: true, result: await client.sessions.send(messages[1], { content }) });
       }
       const cancel = /^\/api\/vibe\/sessions\/([A-Za-z0-9_-]+)\/cancel$/.exec(path);

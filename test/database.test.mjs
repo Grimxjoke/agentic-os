@@ -17,18 +17,69 @@ async function temporaryDatabase() {
 test("migrations are idempotent on an empty and an existing database", async () => {
   const first = await temporaryDatabase();
   try {
-    assert.equal(schemaVersion(first.db), 1);
+    assert.equal(schemaVersion(first.db), 3);
     const tables = first.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all().map((row) => row.name);
-    for (const name of ["access_sessions", "audit_entries", "conversations", "decisions", "events", "jobs", "messages", "schema_migrations"]) {
+    for (const name of ["access_sessions", "agent_versions", "agents", "audit_entries", "conversations", "decisions", "events", "jobs", "messages", "run_artifacts", "run_events", "run_workers", "runs", "schema_migrations", "team_versions", "teams"]) {
       assert.ok(tables.includes(name), `${name} should exist`);
     }
     first.db.close();
     const reopened = await openDatabase({ dataDirectory: first.directory });
-    assert.equal(schemaVersion(reopened.db), 1);
-    assert.equal(reopened.db.prepare("SELECT COUNT(*) count FROM schema_migrations").get().count, 1);
+    assert.equal(schemaVersion(reopened.db), 3);
+    assert.equal(reopened.db.prepare("SELECT COUNT(*) count FROM schema_migrations").get().count, 3);
     reopened.db.close();
   } finally {
     await rm(first.directory, { recursive: true, force: true });
+  }
+});
+
+test("agent definitions create immutable ordered versions", async () => {
+  const opened = await temporaryDatabase();
+  try {
+    const store = new ControlPlaneStore(opened.db, () => "2026-07-17T12:00:00.000Z");
+    const definition = {
+      name: "Heron", role: "Quant researcher", description: "Tests hypotheses",
+      instructions: "Be reproducible.", provider: "openai-codex", model: "gpt-5.4",
+      tools: ["filesystem", "python"], skills: ["research"],
+      budget: { maxTokens: 100000, maxCostUsd: 0, maxDurationMinutes: 30, maxRetries: 1 },
+      policy: { filesystem: "read", network: "allow", trading: "deny" }, color: "amber",
+    };
+    const created = store.createAgent(definition);
+    assert.equal(created.version, 1);
+    const revised = store.createAgentVersion(created.id, { ...definition, instructions: "Be reproducible and cite data." });
+    assert.equal(revised.version, 2);
+    assert.equal(store.listAgents()[0].instructions, "Be reproducible and cite data.");
+    assert.deepEqual(store.listAgentVersions(created.id).map((version) => version.version), [2, 1]);
+    assert.equal(store.listAgentVersions(created.id)[1].instructions, "Be reproducible.");
+    assert.throws(() => opened.db.prepare("UPDATE agent_versions SET name = 'Mutated' WHERE id = ?").run(created.versionId), /immutable/);
+    assert.ok(store.recentActivity().some((event) => event.type === "agent.versioned"));
+  } finally {
+    opened.db.close();
+    await rm(opened.directory, { recursive: true, force: true });
+  }
+});
+
+test("agent registry survives a database close and reopen", async () => {
+  const opened = await temporaryDatabase();
+  let agentId;
+  try {
+    const store = new ControlPlaneStore(opened.db);
+    const created = store.createAgent({
+      name: "Atlas", role: "Architect", description: "Builds execution plans", instructions: "Keep history immutable.",
+      provider: "openai-codex", model: "gpt-5.4", tools: ["filesystem"], skills: [],
+      budget: { maxTokens: 50000, maxCostUsd: 0, maxDurationMinutes: 20, maxRetries: 1 },
+      policy: { filesystem: "read", network: "deny", trading: "deny" }, color: "violet",
+    });
+    agentId = created.id;
+    opened.db.close();
+
+    const reopened = await openDatabase({ dataDirectory: opened.directory });
+    const persisted = new ControlPlaneStore(reopened.db).getAgent(agentId);
+    assert.equal(persisted.name, "Atlas");
+    assert.equal(persisted.version, 1);
+    assert.deepEqual(persisted.policy, { filesystem: "read", network: "deny", trading: "deny" });
+    reopened.db.close();
+  } finally {
+    await rm(opened.directory, { recursive: true, force: true });
   }
 });
 
@@ -61,7 +112,7 @@ test("running jobs are reconciled after a simulated restart", async () => {
     assert.equal(recovered.counts().runningJobs, 0);
     const row = reopened.db.prepare("SELECT status, error FROM jobs WHERE id = ?").get(job.id);
     assert.equal(row.status, "failed");
-    assert.match(row.error, /redémarrage/);
+    assert.match(row.error, /restart/);
     assert.ok(recovered.recentActivity().some((event) => event.type === "job.reconciled"));
     reopened.db.close();
   } finally {
@@ -106,6 +157,7 @@ test("session secrets are hashed and audit payloads are redacted", async () => {
     const payload = JSON.parse(safeJson({ api_key: "secret-value", nested: { authorization: "Bearer sk-project-secret" }, note: "safe" }));
     assert.deepEqual(payload, { api_key: "[REDACTED]", nested: { authorization: "[REDACTED]" }, note: "safe" });
     assert.equal(redact("Bearer sk-project-secret"), "[REDACTED]");
+    assert.equal(redact("11111111-1111-4111-8111-111111111111"), "11111111-1111-4111-8111-111111111111");
   } finally {
     opened.db.close();
     await rm(opened.directory, { recursive: true, force: true });
@@ -121,7 +173,7 @@ test("SQLite backups are readable snapshots", async () => {
     assert.match(result.filename, /^orbit-.*\.sqlite$/);
     assert.ok(result.bytes > 0);
     const header = await readFile(join(opened.directory, "backups", result.filename));
-    assert.equal(header.subarray(0, 16).toString("utf8"), "SQLite format 3\0");
+    assert.equal(header.subarray(0, 16).toString("utf8"), "SQLite format 3\u0000");
   } finally {
     opened.db.close();
     await rm(opened.directory, { recursive: true, force: true });

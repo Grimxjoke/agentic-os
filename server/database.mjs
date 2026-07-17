@@ -40,7 +40,7 @@ export async function runMigrations(db) {
       db.exec("COMMIT");
     } catch (error) {
       db.exec("ROLLBACK");
-      throw new Error(`Migration ${filename} impossible`, { cause: error });
+      throw new Error(`Migration ${filename} failed`, { cause: error });
     }
   }
 }
