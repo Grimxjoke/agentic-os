@@ -11,7 +11,9 @@ import { after, before, test } from "node:test";
 const token = "orbit-phase-zero-test-token";
 let child;
 let fakeBin;
+let dataDirectory;
 let origin;
+let authenticatedCookie;
 
 async function freePort() {
   const probe = createServer();
@@ -54,6 +56,7 @@ async function rawStatus(path) {
 
 before(async () => {
   fakeBin = await mkdtemp(join(tmpdir(), "orbit-test-bin-"));
+  dataDirectory = await mkdtemp(join(tmpdir(), "orbit-test-data-"));
   await writeFile(join(fakeBin, "sudo"), `#!/usr/bin/env node
 const args = process.argv.slice(2);
 process.stdin.resume();
@@ -76,6 +79,7 @@ process.stdin.on("end", () => {
       HOST: "127.0.0.1",
       PORT: String(port),
       ORBIT_ACCESS_TOKEN: token,
+      ORBIT_DATA_DIR: dataDirectory,
       ORBIT_WORKSPACE: process.cwd(),
       PATH: `${fakeBin}:${process.env.PATH || ""}`,
     },
@@ -90,7 +94,21 @@ after(async () => {
     await once(child, "exit");
   }
   if (fakeBin) await rm(fakeBin, { recursive: true, force: true });
+  if (dataDirectory) await rm(dataDirectory, { recursive: true, force: true });
 });
+
+async function authenticatedHeaders() {
+  if (!authenticatedCookie) {
+    const response = await fetch(`${origin}/orbit/?access=${encodeURIComponent(token)}`, {
+      headers: { "X-Forwarded-Proto": "https" },
+      redirect: "manual",
+    });
+    const setCookie = response.headers.getSetCookie().find((value) => value.startsWith("orbit_session="));
+    assert.ok(setCookie);
+    authenticatedCookie = setCookie.split(";", 1)[0];
+  }
+  return { Cookie: authenticatedCookie };
+}
 
 test("liveness and readiness disclose no private configuration", async () => {
   const live = await fetch(`${origin}/orbit/healthz`);
@@ -119,13 +137,15 @@ test("access links establish a secure cookie and remove the token from the URL",
   assert.equal(response.headers.get("location"), "/orbit/");
   assert.doesNotMatch(response.headers.get("location"), /access=/);
   const cookie = response.headers.get("set-cookie");
+  assert.match(cookie, /orbit_session=/);
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /SameSite=Strict/);
   assert.match(cookie, /Secure/);
+  assert.doesNotMatch(cookie, new RegExp(token));
 });
 
 test("authenticated API and SPA deep links work", async () => {
-  const headers = { Cookie: `orbit_access=${token}` };
+  const headers = await authenticatedHeaders();
   const health = await fetch(`${origin}/orbit/api/health`, { headers });
   assert.equal(health.status, 200);
   assert.equal((await health.json()).ok, true);
@@ -136,24 +156,26 @@ test("authenticated API and SPA deep links work", async () => {
 });
 
 test("cross-origin writes are rejected before agent execution", async () => {
+  const headers = await authenticatedHeaders();
   const response = await fetch(`${origin}/orbit/api/chat`, {
     method: "POST",
     headers: {
-      Cookie: `orbit_access=${token}`,
+      ...headers,
       "Content-Type": "application/json",
       Origin: "https://attacker.invalid",
     },
     body: JSON.stringify({ agent: "pi", mode: "plan", message: "ignored" }),
   });
   assert.equal(response.status, 403);
-  assert.deepEqual(await response.json(), { error: "Origine refusée" });
+  assert.deepEqual(await response.json(), { error: "Origine refusée", code: "origin_denied" });
 });
 
 test("a missing Codex rollout starts a fresh session", async () => {
+  const headers = await authenticatedHeaders();
   const response = await fetch(`${origin}/orbit/api/chat`, {
     method: "POST",
     headers: {
-      Cookie: `orbit_access=${token}`,
+      ...headers,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -168,13 +190,31 @@ test("a missing Codex rollout starts a fresh session", async () => {
   assert.equal(body.ok, true);
   assert.equal(body.reply, "CODEX_SESSION_RECOVERED");
   assert.equal(body.sessionReset, true);
-  assert.equal(body.sessionId, "11111111-1111-4111-8111-111111111111");
+  assert.match(body.conversationId, /^[0-9a-f-]{36}$/);
+  assert.equal(body.sessionId, undefined);
+
+  const messages = await fetch(`${origin}/orbit/api/conversations/${body.conversationId}/messages`, { headers });
+  assert.equal(messages.status, 200);
+  const persisted = await messages.json();
+  assert.deepEqual(persisted.messages.map((message) => message.role), ["user", "assistant"]);
+  assert.equal(persisted.messages[1].content, "CODEX_SESSION_RECOVERED");
 });
 
 test("malformed encoded paths do not crash the server", async () => {
+  const headers = await authenticatedHeaders();
+  const cookie = headers.Cookie.split("=", 2)[1];
   let malformedResult;
   try {
-    malformedResult = await rawStatus("/orbit/%E0%A4%A");
+    authenticatedCookie = `orbit_session=${cookie}`;
+    malformedResult = await new Promise((resolve, reject) => {
+      const url = new URL(origin);
+      const req = request({ host: url.hostname, port: url.port, path: "/orbit/%E0%A4%A", headers: { Cookie: authenticatedCookie } }, (response) => {
+        response.resume();
+        response.on("end", () => resolve(response.statusCode));
+      });
+      req.on("error", reject);
+      req.end();
+    });
   } catch (error) {
     // Node's HTTP parser may close an invalid request before the handler runs.
     assert.equal(error.code, "ECONNRESET");
@@ -184,4 +224,33 @@ test("malformed encoded paths do not crash the server", async () => {
 
   const live = await fetch(`${origin}/healthz`);
   assert.equal(live.status, 200);
+});
+
+test("system overview and backups expose measured, redacted data", async () => {
+  const headers = await authenticatedHeaders();
+  const overview = await fetch(`${origin}/orbit/api/system/overview`, { headers });
+  assert.equal(overview.status, 200);
+  const body = await overview.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.database.schemaVersion, 1);
+  assert.ok(body.services.some((service) => service.id === "orbit" && service.status === "operational"));
+  assert.doesNotMatch(JSON.stringify(body), new RegExp(token));
+  assert.doesNotMatch(JSON.stringify(body), /ORBIT_ACCESS_TOKEN|orbit-test-data/);
+
+  const backup = await fetch(`${origin}/orbit/api/system/backups`, { method: "POST", headers });
+  assert.equal(backup.status, 201);
+  const backupBody = await backup.json();
+  assert.match(backupBody.backup.filename, /^orbit-.*\.sqlite$/);
+  assert.ok(backupBody.backup.bytes > 0);
+});
+
+test("revoked browser sessions can no longer access the API", async () => {
+  const headers = await authenticatedHeaders();
+  const revoke = await fetch(`${origin}/orbit/api/session`, { method: "DELETE", headers });
+  assert.equal(revoke.status, 200);
+  assert.equal((await revoke.json()).ok, true);
+
+  const denied = await fetch(`${origin}/orbit/api/health`, { headers, redirect: "manual" });
+  assert.equal(denied.status, 401);
+  authenticatedCookie = undefined;
 });

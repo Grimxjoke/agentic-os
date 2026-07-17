@@ -1,10 +1,10 @@
 # Orbit OS — cartographie de l’existant
 
-État observé le 16 juillet 2026, actualisé après la sécurisation Phase 0. Cette carte décrit ce qui existe réellement, ce qui est simulé et ce qui peut être réutilisé. Elle ne constitue pas une promesse fonctionnelle.
+État observé le 16 juillet 2026, actualisé avec le control-plane Phase 1. Cette carte décrit ce qui existe réellement, ce qui est simulé et ce qui peut être réutilisé. Elle ne constitue pas une promesse fonctionnelle.
 
 ## 1. Résumé exécutif
 
-Orbit est aujourd’hui un prototype React/Vite visuellement riche, mais presque entièrement alimenté par des constantes et `localStorage`. La seule intégration serveur effective est la passerelle de chat vers PI et Codex dans `server.mjs`.
+Orbit possède désormais un premier noyau serveur persistant : sessions d’accès révocables, conversations PI/Codex, jobs, événements, décisions, audit, migrations et sauvegardes SQLite. La page System et le chat lisent ces données réelles. Les autres surfaces métier restent majoritairement alimentées par des constantes ou `localStorage` et doivent encore être remplacées phase par phase.
 
 Vibe-Trading est à l’inverse un moteur de recherche quantitative complet : sessions persistantes, outils de marché, backtests, validation, hypothèses, swarms multi-agents, connecteurs brokers et garde-fous live. Son dépôt est présent sur le VPS mais il n’est ni installé, ni configuré, ni démarré. Il ne contient encore aucune donnée utilisateur.
 
@@ -14,7 +14,7 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 
 | Emplacement | État | Rôle futur |
 |---|---|---|
-| `/home/codex/agentic-os` | dépôt Git public, baseline sur `main`, travail Phase 0 sur branche dédiée | source de vérité Orbit |
+| `/home/codex/agentic-os` | dépôt Git public, Phase 0 sur `main`, Phase 1 sur branche dédiée | source de vérité Orbit |
 | `/root/Vibe-Trading` | dépôt upstream propre, commit `66ceb74` | dépendance moteur, version à épingler et déployer sous un utilisateur non-root |
 | `/home/codex/Agentic OS` | dépôt presque vide | doublon à retirer après vérification |
 | `/opt/agentic-os` | Caddy, MCP et infrastructure non-Hermes conservés ; arbres Hermes/Grafana supprimés | conserver l’infrastructure utile à Orbit |
@@ -25,18 +25,19 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 ### 3.1 Stack
 
 - React 19, TypeScript 5.8, Vite 6, React Router 7.
-- Serveur Node natif dans `server.mjs`, sans framework ni base de données.
-- Authentification par jeton permanent transformé en cookie HTTP-only de 30 jours.
+- Serveur Node natif modulaire sous `server/`, avec `server.mjs` comme point d’entrée minimal.
+- SQLite natif Node 22 en WAL/FULL, migrations SQL ordonnées et données canoniques sous `/var/lib/orbit-os`.
+- Le jeton permanent initialise une session opaque de 30 jours ; seul son hash SHA-256 est conservé et la session est révocable.
 - Build statique servi sous `/orbit/`.
 - Service systemd `orbit-os.service`, lié uniquement à `127.0.0.1:4173` et durci par sandbox systemd.
-- Six tests d’intégration backend couvrent probes, authentification, cookie, origine, deep links et URL malformée. Il n’existe pas encore de test frontend ou end-to-end navigateur.
+- Dix-huit tests unitaires et d’intégration couvrent migrations, transactions, crash/reprise, repositories, policies, redaction, sauvegarde, probes, authentification, révocation, origine, conversations, fallback Codex et routes statiques. Il n’existe pas encore de test end-to-end navigateur automatisé.
 
 ### 3.2 Matrice réel / local / simulé
 
 | Surface | État réel | Destination produit |
 |---|---|---|
-| PI Chat | appel réel au CLI PI, outils en lecture seule | remplacer par un runtime d’orchestration persistant et observable |
-| Codex Chat | appel réel au CLI Codex dans une unité systemd isolée | conserver uniquement comme atelier de modification du dashboard |
+| PI Chat | appel réel au CLI PI, conversation/messages/job persistés, outils en lecture seule | remplacer plus tard par un runtime d’orchestration observable |
+| Codex Chat | appel réel isolé, conversation persistée et récupération des rollouts disparus | conserver uniquement comme atelier de modification du dashboard |
 | Agents | CRUD `localStorage`, modèles et outils codés en dur | registre réel des agents Vibe, profils, budgets et politiques |
 | Skills | CRUD et test simulé en `localStorage` | catalogue réel des 77 skills Vibe et skills Orbit |
 | Cron | éditeur visuel local, proposition PI déterministe par mots-clés | workflows persistants réellement exécutés et repris après redémarrage |
@@ -48,8 +49,8 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 | Vibe | guide documentaire simulé et données obsolètes | cockpit natif du moteur Vibe via API/SSE |
 | Trading | données codées en dur, TradingView externe uniquement | paper trading, comptes, positions, ordres, risques et live borné |
 | Switchboard | topologie locale modifiable | état réel des services et connexions, sans faux interrupteurs |
-| Control Center | services/logs/déploiements simulés | diagnostic réel et actions strictement allowlistées |
-| Activity | cinq événements statiques | ledger append-only de toutes les actions importantes |
+| System | santé Orbit/SQLite/PI/Codex/Vibe, métriques et sauvegarde réelles | étendre avec diagnostics et actions strictement allowlistées |
+| Activity | ledger append-only présent en base et résumé dans System ; page dédiée encore statique | connecter la page complète au ledger |
 | Usage | coûts et tokens statiques | métriques réelles par agent, modèle, run et expérience |
 | Settings | apparence locale ; connexions/permissions simulées | réglages persistants, secrets côté serveur, politiques et budgets |
 | Human Inbox | trois demandes en mémoire React | file persistante de décisions et confirmations exceptionnelles |
@@ -57,7 +58,7 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 
 ### 3.3 Passerelle serveur existante
 
-`server.mjs` fournit actuellement :
+Le point d’entrée `server.mjs` assemble les modules de `server/`, qui fournissent :
 
 - `GET /healthz` et `GET /readyz`, avec alias sous `/orbit/` ;
 - `GET /api/health` ;
@@ -69,15 +70,20 @@ Hermes occupait plusieurs services, conteneurs, tunnels et routes réseau. Décl
 - en-têtes de sécurité communs et gestion des erreurs de requête ;
 - transmission des prompts par stdin pour éviter leur présence dans les arguments journalisés ;
 - sandbox systemd différente pour les modes Plan et Build de Codex.
+- SQLite, migrations, repositories et sauvegardes cohérentes ;
+- sessions révocables et conversion du cookie Phase 0 ;
+- conversations/messages persistants sans identifiant runtime dans le navigateur ;
+- jobs, événements, décisions, audit et réconciliation des jobs interrompus ;
+- politiques codées par niveau de risque ;
+- API System et Activity expurgées.
 
 Limites :
 
-- aucun stockage serveur des conversations ;
-- aucune diffusion progressive, file durable ou reprise de job ;
-- aucun modèle d’autorisation par action ;
+- aucune diffusion progressive SSE ni file de workers ;
+- les jobs interrompus sont réconciliés en échec, mais pas encore repris ;
 - aucune API Files, Agents, Workflow, Usage ou Audit ;
-- jeton global plutôt que session révocable ;
-- les erreurs Codex ne sont pas encore suffisamment instrumentées pour le diagnostic depuis l’UI.
+- le ledger existe, mais sa page Activity n’est pas encore branchée ;
+- les conversations Phase 0 restées uniquement dans le `localStorage` ne sont pas importées automatiquement.
 
 ## 4. Vibe-Trading actuel
 
