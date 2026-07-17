@@ -181,7 +181,7 @@ export class ControlPlaneStore {
           safeJson(definition.tools), safeJson(definition.skills), safeJson(definition.budget),
           safeJson(definition.policy), definition.color, actor, createdAt);
       this.db.prepare("UPDATE agents SET current_version_id = ? WHERE id = ?").run(versionId, agentId);
-      this.event({ type: "agent.created", message: `${definition.name} créé`, payload: { agentId, version: 1 } });
+      this.event({ type: "agent.created", message: `${definition.name}created`, payload: { agentId, version: 1 } });
       this.audit({ actor, action: "agent.created", outcome: "success", targetType: "agent", targetId: agentId, metadata: { versionId, version: 1 } });
       return this.getAgent(agentId);
     });
@@ -204,7 +204,7 @@ export class ControlPlaneStore {
           safeJson(definition.policy), definition.color, actor, createdAt);
       this.db.prepare("UPDATE agents SET current_version_id = ?, updated_at = ? WHERE id = ?")
         .run(versionId, createdAt, agentId);
-      this.event({ type: "agent.versioned", message: `${definition.name} révisé en v${version}`, payload: { agentId, versionId, version } });
+      this.event({ type: "agent.versioned", message: `${definition.name}revised in v${version}`, payload: { agentId, versionId, version } });
       this.audit({ actor, action: "agent.versioned", outcome: "success", targetType: "agent", targetId: agentId, metadata: { versionId, version } });
       return this.getAgent(agentId);
     });
@@ -239,7 +239,7 @@ export class ControlPlaneStore {
   assertTeamAgentVersions(definition) {
     for (const node of definition.nodes) {
       if (!this.getAgentVersion(node.agentVersionId)) {
-        const error = new Error(`Version agent inconnue pour ${node.key}`);
+        const error = new Error(`Unknown agent version for${node.key}`);
         error.code = "unknown_agent_version";
         throw error;
       }
@@ -259,7 +259,7 @@ export class ControlPlaneStore {
         .run(versionId, teamId, definition.name, definition.description, definition.maxConcurrency,
           safeJson(definition.nodes), safeJson(definition.budget), actor, createdAt);
       this.db.prepare("UPDATE teams SET current_version_id = ? WHERE id = ?").run(versionId, teamId);
-      this.event({ type: "team.created", message: `${definition.name} créée`, payload: { teamId, versionId, version: 1 } });
+      this.event({ type: "team.created", message: `${definition.name}created`, payload: { teamId, versionId, version: 1 } });
       this.audit({ actor, action: "team.created", outcome: "success", targetType: "team", targetId: teamId, metadata: { versionId, version: 1 } });
       return this.getTeam(teamId);
     });
@@ -279,7 +279,7 @@ export class ControlPlaneStore {
         .run(versionId, teamId, version, definition.name, definition.description, definition.maxConcurrency,
           safeJson(definition.nodes), safeJson(definition.budget), actor, createdAt);
       this.db.prepare("UPDATE teams SET current_version_id = ?, updated_at = ? WHERE id = ?").run(versionId, createdAt, teamId);
-      this.event({ type: "team.versioned", message: `${definition.name} révisée en v${version}`, payload: { teamId, versionId, version } });
+      this.event({ type: "team.versioned", message: `${definition.name}revised in v${version}`, payload: { teamId, versionId, version } });
       this.audit({ actor, action: "team.versioned", outcome: "success", targetType: "team", targetId: teamId, metadata: { versionId, version } });
       return this.getTeam(teamId);
     });
@@ -307,7 +307,7 @@ export class ControlPlaneStore {
       team: { id: team.id, versionId: team.versionId, version: team.version, name: team.name, description: team.description, maxConcurrency: team.maxConcurrency, budget: team.budget },
       nodes: team.nodes.map((node) => ({ ...node, agent: this.getAgentVersion(node.agentVersionId) })),
     };
-    if (canonicalSnapshot.nodes.some((node) => !node.agent)) throw new Error("Snapshot impossible : version agent manquante");
+    if (canonicalSnapshot.nodes.some((node) => !node.agent)) throw new Error("Cannot create snapshot: agent version missing");
     const id = randomUUID();
     const createdAt = this.clock();
     return this.transaction(() => {
@@ -381,7 +381,7 @@ export class ControlPlaneStore {
     const startedAt = this.clock();
     const changed = this.db.prepare(`UPDATE runs SET status = 'running', started_at = COALESCE(started_at, ?)
       WHERE id = ? AND status IN ('queued', 'degraded')`).run(startedAt, id).changes;
-    if (changed) this.runEvent({ runId: id, type: "run.started", message: "Run démarré" });
+    if (changed) this.runEvent({ runId: id, type: "run.started", message: "Run started" });
     return changed > 0;
   }
 
@@ -390,7 +390,7 @@ export class ControlPlaneStore {
     const changed = this.db.prepare("UPDATE run_workers SET status = 'running', started_at = ? WHERE id = ? AND status = 'queued'").run(startedAt, id).changes;
     if (changed) {
       const worker = this.db.prepare("SELECT run_id AS runId, node_key AS nodeKey, attempt FROM run_workers WHERE id = ?").get(id);
-      this.runEvent({ runId: worker.runId, workerId: id, type: "worker.started", message: `${worker.nodeKey} · tentative ${worker.attempt}` });
+      this.runEvent({ runId: worker.runId, workerId: id, type: "worker.started", message: `${worker.nodeKey}· attempt${worker.attempt}` });
     }
     return changed > 0;
   }
@@ -406,14 +406,14 @@ export class ControlPlaneStore {
     const changed = this.db.prepare(`UPDATE run_workers SET status = 'completed', output_json = ?,
       tokens_used = ?, cost_usd = ?, finished_at = ? WHERE id = ? AND status = 'running'`)
       .run(safeJson(output), tokensUsed, costUsd, finishedAt, id).changes;
-    if (changed) this.runEvent({ runId: worker.runId, workerId: id, type: "worker.completed", message: `${worker.nodeKey} terminé`, payload: { tokensUsed, costUsd } });
+    if (changed) this.runEvent({ runId: worker.runId, workerId: id, type: "worker.completed", message: `${worker.nodeKey}finished`, payload: { tokensUsed, costUsd } });
     this.refreshRunMetrics(worker.runId);
     return changed > 0;
   }
 
   failWorker(id, error, status = "failed", { tokensUsed = null, costUsd = null } = {}) {
     const finishedAt = this.clock();
-    const safeError = String(redact(String(error || "Erreur worker"))).slice(-1400);
+    const safeError = String(redact(String(error || "Worker error"))).slice(-1400);
     const worker = this.db.prepare("SELECT run_id AS runId, node_key AS nodeKey FROM run_workers WHERE id = ?").get(id);
     if (!worker) return false;
     const changed = this.db.prepare(`UPDATE run_workers SET status = ?, error = ?, tokens_used = ?, cost_usd = ?, finished_at = ?
@@ -451,14 +451,14 @@ export class ControlPlaneStore {
     const changed = this.db.prepare(`UPDATE runs SET cancel_requested_at = ?
       WHERE id = ? AND status IN ('queued', 'running', 'degraded') AND cancel_requested_at IS NULL`).run(requestedAt, id).changes;
     if (changed) {
-      this.runEvent({ runId: id, type: "run.cancel_requested", level: "warning", message: "Annulation demandée" });
+      this.runEvent({ runId: id, type: "run.cancel_requested", level: "warning", message: "Cancellation requested" });
       this.audit({ actor, action: "run.cancelled", outcome: "requested", targetType: "run", targetId: id });
     }
     return changed > 0;
   }
 
   finishRun(id, status, error = null) {
-    if (!["completed", "failed", "cancelled"].includes(status)) throw new Error("Statut final invalide");
+    if (!["completed", "failed", "cancelled"].includes(status)) throw new Error("Invalid final status");
     const finishedAt = this.clock();
     const safeError = error ? String(redact(String(error))).slice(-1400) : null;
     const changed = this.db.prepare(`UPDATE runs SET status = ?, error = ?, finished_at = ?
@@ -467,7 +467,7 @@ export class ControlPlaneStore {
       if (status !== "completed") this.db.prepare(`UPDATE run_workers SET status = ?, error = COALESCE(error, ?), finished_at = ?
         WHERE run_id = ? AND status = 'queued'`).run(status === "cancelled" ? "cancelled" : "skipped", safeError, finishedAt, id);
       this.refreshRunMetrics(id);
-      this.runEvent({ runId: id, type: `run.${status}`, level: status === "completed" ? "info" : status === "cancelled" ? "warning" : "error", message: status === "completed" ? "Run terminé" : safeError || `Run ${status}` });
+      this.runEvent({ runId: id, type: `run.${status}`, level: status === "completed" ? "info" : status === "cancelled" ? "warning" : "error", message: status === "completed" ? "Run completed" : safeError || `Run ${status}` });
     }
     return changed > 0;
   }
@@ -493,7 +493,7 @@ export class ControlPlaneStore {
     const createdAt = this.clock();
     this.db.prepare(`INSERT INTO run_artifacts(id, run_id, worker_id, name, kind, uri, bytes, checksum, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, runId, workerId, String(name).slice(0, 200), String(kind).slice(0, 80), String(uri).slice(0, 1000), bytes, checksum, createdAt);
-    this.runEvent({ runId, workerId, type: "artifact.created", message: `${name} ajouté`, payload: { artifactId: id, kind, uri } });
+    this.runEvent({ runId, workerId, type: "artifact.created", message: `${name}added`, payload: { artifactId: id, kind, uri } });
     return { id, runId, workerId, name, kind, uri, bytes, checksum, createdAt };
   }
 
@@ -508,15 +508,15 @@ export class ControlPlaneStore {
       const running = this.latestRunWorkers(id).filter((worker) => worker.status === "running");
       let recoverable = true;
       for (const worker of running) {
-        this.failWorker(worker.id, "Tentative interrompue par un redémarrage du control-plane");
+        this.failWorker(worker.id, "Attempt interrupted by restart of the control plane");
         const node = run.snapshot.nodes.find((candidate) => candidate.key === worker.nodeKey);
         if (worker.attempt <= (node?.agent?.budget?.maxRetries ?? 0)) this.queueWorkerRetry(worker);
         else recoverable = false;
       }
       if (recoverable) {
         this.db.prepare("UPDATE runs SET status = 'degraded' WHERE id = ?").run(id);
-        this.runEvent({ runId: id, type: "run.recovered", level: "warning", message: "Run repris après redémarrage" });
-      } else this.finishRun(id, "failed", "Budget de retries épuisé après redémarrage");
+        this.runEvent({ runId: id, type: "run.recovered", level: "warning", message: "Run resumed after restart" });
+      } else this.finishRun(id, "failed", "Retries budget exhausted after restart");
     }
     return stale.length;
   }
@@ -548,7 +548,7 @@ export class ControlPlaneStore {
     return this.transaction(() => {
       this.db.prepare(`INSERT INTO jobs(id, kind, status, title, input_json, created_at, started_at)
         VALUES (?, ?, 'running', ?, ?, ?, ?)`).run(id, kind, title, safeJson(input), createdAt, createdAt);
-      this.event({ jobId: id, type: "job.started", level: "info", message: `${title} démarré` });
+      this.event({ jobId: id, type: "job.started", level: "info", message: `${title}started` });
       return { id, kind, status: "running", title, createdAt, startedAt: createdAt };
     });
   }
@@ -558,7 +558,7 @@ export class ControlPlaneStore {
       const finishedAt = this.clock();
       this.db.prepare(`UPDATE jobs SET status = 'completed', output_json = ?, finished_at = ?
         WHERE id = ? AND status = 'running'`).run(safeJson(output), finishedAt, id);
-      this.event({ jobId: id, type: "job.completed", level: "info", message: "Job terminé" });
+      this.event({ jobId: id, type: "job.completed", level: "info", message: "Job completed" });
       return finishedAt;
     });
   }
@@ -566,7 +566,7 @@ export class ControlPlaneStore {
   failJob(id, error) {
     return this.transaction(() => {
       const finishedAt = this.clock();
-      const safeError = String(redact(String(error || "Erreur inconnue"))).slice(-1400);
+      const safeError = String(redact(String(error || "Unknown error"))).slice(-1400);
       this.db.prepare(`UPDATE jobs SET status = 'failed', error = ?, finished_at = ?
         WHERE id = ? AND status = 'running'`).run(safeError, finishedAt, id);
       this.event({ jobId: id, type: "job.failed", level: "error", message: safeError });
@@ -589,8 +589,8 @@ export class ControlPlaneStore {
       const finishedAt = this.clock();
       for (const { id } of stale) {
         this.db.prepare("UPDATE jobs SET status = 'failed', error = ?, finished_at = ? WHERE id = ?")
-          .run("Interrompu par un redémarrage du control-plane", finishedAt, id);
-        this.event({ jobId: id, type: "job.reconciled", level: "warning", message: "Job interrompu réconcilié au démarrage" });
+          .run("Interrupted by a restart of the control-plane", finishedAt, id);
+        this.event({ jobId: id, type: "job.reconciled", level: "warning", message: "Interrupted job reconciled at startup" });
       }
       return stale.length;
     });
@@ -606,10 +606,10 @@ export class ControlPlaneStore {
   }
 
   resolveDecision(id, status) {
-    if (status !== "approved" && status !== "rejected" && status !== "expired") throw new Error("Statut de décision invalide");
+    if (status !== "approved" && status !== "rejected" && status !== "expired") throw new Error("Invalid decision status");
     const resolvedAt = this.clock();
     const changed = this.db.prepare("UPDATE decisions SET status = ?, resolved_at = ? WHERE id = ? AND status = 'pending'").run(status, resolvedAt, id).changes;
-    if (changed) this.event({ type: "decision.resolved", message: `Décision ${status}`, payload: { decisionId: id, status } });
+    if (changed) this.event({ type: "decision.resolved", message: `Decision${status}`, payload: { decisionId: id, status } });
     return changed > 0;
   }
 

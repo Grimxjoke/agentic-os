@@ -37,7 +37,7 @@ const navigation = [
     { to: "/control", label: "System", icon: Gauge },
     { to: "/activity", label: "Activity", icon: History },
     { to: "/usage", label: "Usage", icon: CircleDollarSign },
-    { to: "/settings", label: "Réglages", icon: Settings },
+    { to: "/settings", label: "Settings", icon: Settings },
   ]},
 ];
 
@@ -101,8 +101,8 @@ export function AppLayout() {
         <div className="brand">
           <div className="brand-mark"><Orbit size={21} /><i /></div>
           <div className="brand-copy"><strong>ORBIT <span>/ OS</span></strong><small>Pi + Codex control plane</small></div>
-          <button className="icon-button desktop-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Agrandir la navigation" : "Réduire la navigation"} data-no-feedback="true"><ChevronLeft size={17} /></button>
-          <button className="icon-button mobile-close" onClick={() => setMobileOpen(false)} aria-label="Fermer la navigation"><X size={18} /></button>
+          <button className="icon-button desktop-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} data-no-feedback="true"><ChevronLeft size={17} /></button>
+          <button className="icon-button mobile-close" onClick={() => setMobileOpen(false)} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
         <nav className="main-nav" aria-label="Navigation principale">
@@ -120,19 +120,19 @@ export function AppLayout() {
 
         <div className="sidebar-footer">
           <button className={"demo-pulse system-pulse-button " + (!systemError && system ? "active" : "")} onClick={() => go("/control")}>
-            <span className="pulse-dot" /><span><strong>{systemError ? "System dégradé" : system ? "Control-plane actif" : "Connexion…"}</strong><small>{system ? `${system.counts.events} événements persistés` : "Synchronisation Orbit"}</small></span><Gauge size={14} />
+            <span className="pulse-dot" /><span><strong>{systemError ? "Degraded system" : system ? "Active control plane" : "Connexion…"}</strong><small>{system ? `${system.counts.events}persisted events` : "Synchronisation Orbit"}</small></span><Gauge size={14} />
           </button>
-          <div className="profile-chip"><div className="profile-avatar">PB</div><div><strong>Workspace de Paul</strong><small>V0.5 · VPS privé</small></div><Sparkles size={15} /></div>
+          <div className="profile-chip"><div className="profile-avatar">PB</div><div><strong>Workspace de Paul</strong><small>V0.5 · Private VPS</small></div><Sparkles size={15} /></div>
         </div>
       </aside>
 
       <div className="workspace-shell">
         <header className="topbar">
-          <button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Ouvrir la navigation"><Menu size={19} /></button>
+          <button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={19} /></button>
           <div className="breadcrumbs"><Boxes size={15} /><span>Orbit OS</span><i>/</i><strong>{allItems.find((item) => item.to === location.pathname)?.label ?? "Observatoire"}</strong></div>
-          <button className="command-search" onClick={() => setPaletteOpen(true)}><Search size={15} /><span>Rechercher, ouvrir ou piloter…</span><kbd>⌘ K</kbd></button>
-          <button className={`system-chip ${systemError ? "degraded" : ""}`} onClick={() => go("/control")}><Network size={14} /><span>{system ? `${serviceCount}/${system.services.length} systèmes` : systemError ? "System dégradé" : "Connexion…"}</span><i /></button>
-          <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Activer le thème lunaire clair" : "Activer le thème orbital sombre"} data-feedback={theme === "dark" ? "Thème lunaire activé" : "Thème orbital activé"}>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
+          <button className="command-search" onClick={() => setPaletteOpen(true)}><Search size={15} /><span>Search, open or manage…</span><kbd>⌘ K</kbd></button>
+          <button className={`system-chip ${systemError ? "degraded" : ""}`} onClick={() => go("/control")}><Network size={14} /><span>{system ? `${serviceCount}/${system.services.length}systems` : systemError ? "Degraded system" : "Connexion…"}</span><i /></button>
+          <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Activate light lunar theme" : "Enable Dark Orbital Theme"} data-feedback={theme === "dark" ? "Lunar theme activated" : "Orbital theme activated"}>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
         </header>
         <main className="main-content"><Outlet /></main>
       </div>
@@ -140,16 +140,16 @@ export function AppLayout() {
       {paletteOpen && (
         <div className="modal-backdrop" onMouseDown={() => setPaletteOpen(false)}>
           <div className="command-palette v03-palette" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="palette-input"><Search size={18} /><input autoFocus placeholder="Commande, fichier, agent ou page…" /><kbd>ESC</kbd></div>
-            <div className="palette-orbit"><span><Command size={13} />Universal command deck</span><small>Navigation Orbit · opérations bornées</small></div>
+            <div className="palette-input"><Search size={18} /><input autoFocus placeholder="Order, file, agent or page…" /><kbd>ESC</kbd></div>
+            <div className="palette-orbit"><span><Command size={13} />Universal command deck</span><small>Orbit navigation · bounded operations</small></div>
             <p className="palette-label">Actions rapides</p>
             <div className="palette-results">
-              <button onClick={() => go("/chat/codex")}><Command size={17} /><span><strong>Demander à Codex de construire</strong><small>Ouvrir une session en mode Build</small></span><kbd>↵</kbd></button>
-              <button onClick={() => go("/chat/pi")}><Bot size={17} /><span><strong>Planifier avec Pi</strong><small>Orchestrer le workspace partagé</small></span></button>
-              <button onClick={() => go("/control")}><TerminalSquare size={17} /><span><strong>Piloter les services</strong><small>Control Center visuel</small></span></button>
-              <button onClick={() => go("/vibe")}><Zap size={17} /><span><strong>Explorer Vibe-Trading</strong><small>Docs, skills, agents et commandes</small></span></button>
-              <button onClick={() => go("/kanban")}><Columns3 size={17} /><span><strong>Créer une mission</strong><small>Ajouter une carte au Kanban partagé</small></span></button>
-              <button onClick={() => go("/switchboard")}><GitBranch size={17} /><span><strong>Inspecter les connexions</strong><small>Voir le System Switchboard</small></span></button>
+              <button onClick={() => go("/chat/codex")}><Command size={17} /><span><strong>Ask Codex to build</strong><small>Log in to Build mode</small></span><kbd>↵</kbd></button>
+              <button onClick={() => go("/chat/pi")}><Bot size={17} /><span><strong>Plan with Pi</strong><small>Orchestrate the shared workspace</small></span></button>
+              <button onClick={() => go("/control")}><TerminalSquare size={17} /><span><strong>Control services</strong><small>Visual Control Center</small></span></button>
+              <button onClick={() => go("/vibe")}><Zap size={17} /><span><strong>Explorer Vibe-Trading</strong><small>Docs, skills, agents and orders</small></span></button>
+              <button onClick={() => go("/kanban")}><Columns3 size={17} /><span><strong>Create a mission</strong><small>Add a card to shared Kanban</small></span></button>
+              <button onClick={() => go("/switchboard")}><GitBranch size={17} /><span><strong>Inspect connections</strong><small>View the System Switchboard</small></span></button>
             </div>
           </div>
         </div>

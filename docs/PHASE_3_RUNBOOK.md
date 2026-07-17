@@ -1,77 +1,77 @@
-# Phase 3 — runbook Agent Lab et Runs
+# Phase 3 — Agent Lab and Runs runbook
 
-## 1. Périmètre
+## 1. Perimeter
 
-La Phase 3 ajoute au control-plane Orbit :
+Phase 3 adds to the Orbit control plane:
 
-- agents et équipes versionnés de façon immuable ;
-- DAG validés côté serveur, concurrence maximale de deux workers ;
-- runs, workers, tentatives, événements et références d’artifacts persistants ;
-- exécution privée par Vibe, annulation, retry et reprise après restart ;
-- timeline SSE reprenable et Observatory alimenté par les données réelles.
+- agents and teams versioned in an immutable way;
+- DAGs validated on the server side, maximum concurrency of two workers;
+- runs, workers, attempts, events and persistent artifact references;
+- private execution by Vibe, cancellation, retry and recovery after restart;
+- resumable SSE timeline and Observatory powered by real data.
 
-Le trading reste interdit. Les chemins privés Vibe sont transformés en références
-opaques avant exposition au navigateur.
+Trading remains prohibited. Vibe private roads are transformed into references
+opaque before exposure to the browser.
 
-## 2. Données canoniques
+## 2. Canonical data
 
-La migration `003_teams_and_runs.sql` crée :
+The `003_teams_and_runs.sql` migration creates:
 
-- `teams` et `team_versions` ;
-- `runs`, `run_workers` et `run_events` ;
+- `teams` and `team_versions`;
+- `runs`, `run_workers`, and `run_events`;
 - `run_artifacts`.
 
-Les versions d’équipes sont immuables et les événements de run append-only via
-triggers SQLite. Les snapshots contiennent la version exacte de chaque agent.
+Team versions are immutable and run events append-only via
+SQLite triggers. The snapshots contain the exact version of each agent.
 
-## 3. Déploiement
+## 3. Deployment
 
-1. Vérifier que le worktree est propre et que la branche attendue est checkout.
-2. Exécuter `npm test`.
-3. Créer une sauvegarde cohérente dans le répertoire de données réellement
-   déclaré par systemd. Sur le VPS actuel :
+1. Check that the worktree is clean and that the expected branch is checkout.
+2. Run `npm test`.
+3. Create a consistent backup in the actual data directory
+declared by systemd. On the current VPS:
    `sudo env ORBIT_DATA_DIR=/var/lib/orbit-os npm run db:backup`.
-4. Exécuter `npm run db:migrate` ou redémarrer Orbit, qui applique les migrations
-   forward-only au démarrage.
-5. Redémarrer `orbit-os.service`.
-6. Vérifier `/healthz`, `/readyz`, `/api/system/overview`, `/api/agents`,
-   `/api/teams`, `/api/runs` et `/api/observatory` via la frontière authentifiée.
-7. Vérifier que Vibe reste loopback-only et prêt.
+4. Run `npm run db:migrate` or restart Orbit, which applies the migrations
+forward-only at startup.
+5. Restart `orbit-os.service`.
+6. Check `/healthz`, `/readyz`, `/api/system/overview`, `/api/agents`,
+`/api/teams`, `/api/runs` and `/api/observatory` via the authenticated border.
+7. Verify that Vibe remains loopback-only and ready.
 
-## 4. Smoke test déterministe
+## 4. Deterministic smoke test
 
-Le smoke test sans coût utilise un exécuteur factice et vérifie :
+The costless smoke test uses a dummy executor and checks:
 
-1. création d’un agent ;
-2. création d’une équipe à deux nœuds ;
-3. refus d’un cycle ;
-4. lancement et terminaison du run ;
-5. relay SSE sans doublon ;
-6. tokens, coût et artifacts mesurés ;
-7. retry depuis le snapshot initial ;
-8. agrégats Observatory.
+1. creation of an agent;
+2. creation of a two-node team;
+3. refusal of a cycle;
+4. start and end of the run;
+5. SSE relay without duplicate;
+6. tokens, cost and artifacts measured;
+7. retry from the initial snapshot;
+8. Observatory aggregates.
 
-Le smoke test LLM réel doit rester minimal : une petite équipe, un objectif court,
-aucun tool d’écriture et suppression explicite des sessions de test côté Vibe.
+The actual LLM smoke test must remain minimal: a small team, a short objective,
+no writing tools and explicit deletion of test sessions on the Vibe side.
 
-## 5. Reprise et incidents
+## 5. Recovery and incidents
 
-- Au démarrage, tout worker `running` est marqué échoué avec une cause de restart.
-- Une nouvelle tentative est mise en file si le budget de retries le permet.
-- Le run passe `degraded`, puis l’orchestrateur reprend les branches disponibles.
-- Si le budget est épuisé, le run devient `failed` sans effacer les événements.
-- Une absence de métrique provider reste `null` et s’affiche « — ».
-- Une déconnexion SSE reprend depuis `Last-Event-ID`.
+- At startup, any `running` worker is marked failed with a restart cause.
+- A new attempt is queued if the retries budget allows it.
+- The run passes `degraded`, then the orchestrator takes the available branches.
+- If the budget is exhausted, the run becomes `failed` without deleting the events.
+- An absence of provider metric remains `null` and is displayed “—”.
+- An SSE disconnection resumes from `Last-Event-ID`.
 
 ## 6. Rollback
 
-1. Arrêter `orbit-os.service`.
-2. Restaurer le commit applicatif précédent.
-3. Conserver le schéma v3 : les anciennes versions d’Orbit ignorent les nouvelles
-   tables et aucune migration destructive n’est nécessaire.
-4. Si les données Phase 3 doivent également revenir à l’état antérieur, restaurer
-   la sauvegarde SQLite réalisée avant déploiement.
-5. Redémarrer Orbit et vérifier health/readiness.
+1. Stop `orbit-os.service`.
+2. Restore the previous application commit.
+3. Keep schema v3: old versions of Orbit ignore new ones
+tables and no destructive migration is necessary.
+4. If Phase 3 data also needs to return to the previous state, restore
+the SQLite backup carried out before deployment.
+5. Restart Orbit and check health/readiness.
 
-Ne jamais supprimer manuellement `run_events`, `agent_versions` ou
-`team_versions`. Toute purge future devra être explicite, prévisualisée et auditée.
+Never manually remove `run_events`, `agent_versions` or
+`team_versions`. Any future purges must be explicit, previewed and audited.

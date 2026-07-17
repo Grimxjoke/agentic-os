@@ -11,9 +11,9 @@ test("chat schema accepts only bounded known values", () => {
     legacySessionId: "",
   });
   assert.throws(() => parseChatInput({ agent: "unknown", message: "hello" }), ValidationError);
-  assert.throws(() => parseChatInput({ agent: "pi", message: "" }), /Message vide/);
-  assert.throws(() => parseChatInput({ agent: "pi", message: "x".repeat(16_001) }), /trop long/);
-  assert.throws(() => parseChatInput({ agent: "pi", message: "ok", conversationId: "../escape" }), /Conversation invalide/);
+  assert.throws(() => parseChatInput({ agent: "pi", message: "" }), /Message is empty/);
+  assert.throws(() => parseChatInput({ agent: "pi", message: "x".repeat(16_001) }), /too long/);
+  assert.throws(() => parseChatInput({ agent: "pi", message: "ok", conversationId: "../escape" }), /Invalid conversation/);
 });
 
 test("agent definitions bound budgets and keep trading denied", () => {
@@ -24,13 +24,13 @@ test("agent definitions bound budgets and keep trading denied", () => {
   assert.equal(parsed.name, "Heron");
   assert.deepEqual(parsed.tools, ["python"]);
   assert.equal(parsed.policy.trading, "deny");
-  assert.throws(() => parseAgentDefinitionInput({ ...parsed, budget: { ...parsed.budget, maxRetries: 11 } }), /Budget retries invalide/);
-  assert.throws(() => parseAgentDefinitionInput({ ...parsed, policy: { ...parsed.policy, trading: "allow" } }), /Policy trading invalide/);
+  assert.throws(() => parseAgentDefinitionInput({ ...parsed, budget: { ...parsed.budget, maxRetries: 11 } }), /Invalid retry budget/);
+  assert.throws(() => parseAgentDefinitionInput({ ...parsed, policy: { ...parsed.policy, trading: "allow" } }), /Invalid policy trading/);
 });
 
 test("conversation schema supplies an honest empty title", () => {
-  assert.deepEqual(parseConversationInput({ agent: "pi" }), { agent: "pi", title: "Nouvelle conversation" });
-  assert.throws(() => parseConversationInput({ agent: "pi", title: "x".repeat(121) }), /trop long/);
+  assert.deepEqual(parseConversationInput({ agent: "pi" }), { agent: "pi", title: "New conversation" });
+  assert.throws(() => parseConversationInput({ agent: "pi", title: "x".repeat(121) }), /too long/);
 });
 
 test("team definitions accept a DAG and reject cycles or excess concurrency", () => {
@@ -43,7 +43,7 @@ test("team definitions accept a DAG and reject cycles or excess concurrency", ()
     ],
   };
   assert.equal(parseTeamDefinitionInput(valid).nodes.length, 2);
-  assert.throws(() => parseTeamDefinitionInput({ ...valid, maxConcurrency: 3 }), /Concurrence invalide/);
+  assert.throws(() => parseTeamDefinitionInput({ ...valid, maxConcurrency: 3 }), /Invalid concurrency/);
   assert.throws(() => parseTeamDefinitionInput({ ...valid, nodes: [
     { ...valid.nodes[0], dependsOn: ["review"] }, valid.nodes[1],
   ] }), (error) => error.code === "cyclic_team");

@@ -112,7 +112,7 @@ test("running jobs are reconciled after a simulated restart", async () => {
     assert.equal(recovered.counts().runningJobs, 0);
     const row = reopened.db.prepare("SELECT status, error FROM jobs WHERE id = ?").get(job.id);
     assert.equal(row.status, "failed");
-    assert.match(row.error, /redémarrage/);
+    assert.match(row.error, /restart/);
     assert.ok(recovered.recentActivity().some((event) => event.type === "job.reconciled"));
     reopened.db.close();
   } finally {
@@ -173,7 +173,7 @@ test("SQLite backups are readable snapshots", async () => {
     assert.match(result.filename, /^orbit-.*\.sqlite$/);
     assert.ok(result.bytes > 0);
     const header = await readFile(join(opened.directory, "backups", result.filename));
-    assert.equal(header.subarray(0, 16).toString("utf8"), "SQLite format 3\0");
+    assert.equal(header.subarray(0, 16).toString("utf8"), "SQLite format 3\u0000");
   } finally {
     opened.db.close();
     await rm(opened.directory, { recursive: true, force: true });

@@ -83,35 +83,35 @@ export function createVibeWorkerExecutor(vibe) {
   let overviewAt = 0;
   return {
     async execute({ run, worker, node, upstreamOutputs, signal, emit, setSession, artifact }) {
-      if (signal.aborted) throw new DOMException("Annulé", "AbortError");
+      if (signal.aborted) throw new DOMException("Canceled", "AbortError");
       if (typeof vibe.overview === "function" && (!cachedOverview || Date.now() - overviewAt > 30_000)) {
         cachedOverview = await vibe.overview();
         overviewAt = Date.now();
       }
       if (cachedOverview) {
-        if (!cachedOverview.ready) throw new Error(cachedOverview.reason || "Provider Vibe non prêt");
+        if (!cachedOverview.ready) throw new Error(cachedOverview.reason || "Provider Vibe not ready");
         const configuredProvider = String(cachedOverview.provider?.name || "").toLowerCase();
         const configuredModel = String(cachedOverview.provider?.model || "").toLowerCase();
-        if (configuredProvider && configuredProvider !== String(node.agent.provider).toLowerCase()) throw new Error(`Provider ${node.agent.provider} non disponible dans Vibe`);
-        if (configuredModel && !configuredModel.endsWith(String(node.agent.model).toLowerCase())) throw new Error(`Modèle ${node.agent.model} non disponible dans Vibe`);
+        if (configuredProvider && configuredProvider !== String(node.agent.provider).toLowerCase()) throw new Error(`Provider ${node.agent.provider} is not available in Vibe`);
+        if (configuredModel && !configuredModel.endsWith(String(node.agent.model).toLowerCase())) throw new Error(`Model${node.agent.model}not available in Vibe`);
       }
       const created = await vibe.sessions.create({ title: `${run.snapshot.team.name} · ${node.label}`.slice(0, 160), config: { include_shell_tools: false } });
       const sessionId = sessionIdentifier(created);
-      if (!sessionId) throw new Error("Vibe n’a pas retourné d’identifiant de session");
+      if (!sessionId) throw new Error("Vibe did not return a session ID");
       setSession(sessionId);
 
       const upstream = Object.entries(upstreamOutputs)
         .map(([key, output]) => `${key}: ${compact(output?.content || JSON.stringify(output), 800)}`)
         .join("\n");
       const prompt = [
-        `Objectif global: ${run.objective}`,
-        `Rôle: ${node.agent.role}`,
+        `Overall objective:${run.objective}`,
+        `Role: ${node.agent.role}`,
         `Instructions: ${node.agent.instructions}`,
-        `Outils autorisés: ${node.agent.tools?.length ? node.agent.tools.join(", ") : "aucun"}`,
+        `Authorized tools:${node.agent.tools?.length ? node.agent.tools.join(", ") : "none"}`,
         `Policies: filesystem=${node.agent.policy?.filesystem || "deny"}, network=${node.agent.policy?.network || "deny"}, trading=deny`,
-        `Tâche de ce worker: ${node.task}`,
-        upstream ? `Résultats des dépendances:\n${upstream}` : "Ce worker n’a aucune dépendance.",
-        "Réponds avec un résultat vérifiable et cite les artifacts produits.",
+        `Task of this worker:${node.task}`,
+        upstream ? `Dependencies results:${upstream}` : "This worker has no dependencies.",
+        "Respond with a verifiable result and cite the artifacts produced.",
       ].join("\n\n").slice(0, 5_000);
 
       let reader;
@@ -123,7 +123,7 @@ export function createVibeWorkerExecutor(vibe) {
       try {
         await vibe.sessions.send(sessionId, { content: prompt });
         const response = await vibe.sessions.stream(sessionId, "", "all");
-        if (!response.ok || !response.body) throw new Error(`Flux Vibe indisponible (${response.status})`);
+        if (!response.ok || !response.body) throw new Error(`Vibe stream unavailable (${response.status})`);
         reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -132,7 +132,7 @@ export function createVibeWorkerExecutor(vibe) {
         let terminalError = "";
         let usage = { tokens: null, costUsd: null };
         while (!terminal) {
-          if (signal.aborted) throw new DOMException("Annulé", "AbortError");
+          if (signal.aborted) throw new DOMException("Canceled", "AbortError");
           const { done, value } = await reader.read();
           buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
           const frames = buffer.split(/\r?\n\r?\n/);
@@ -144,7 +144,7 @@ export function createVibeWorkerExecutor(vibe) {
             if (event.type === "llm_usage") usage = usageFrom(event.data, usage);
             if (event.type === "tool_call" && !toolAllowed(event.data.tool || event.data.name, node.agent)) {
               await vibe.sessions.cancel(sessionId).catch(() => {});
-              throw new Error(`Policy refusée pour l’outil ${compact(event.data.tool || event.data.name || "inconnu", 120)}`);
+              throw new Error(`Policy denied tool ${compact(event.data.tool || event.data.name || "unknown", 120)}`);
             }
             const foundArtifact = artifactFrom(event.type, event.data);
             if (foundArtifact) artifact(foundArtifact);
@@ -159,7 +159,7 @@ export function createVibeWorkerExecutor(vibe) {
             if (event.type === "attempt.completed") terminal = "completed";
             if (event.type === "attempt.failed") {
               terminal = "failed";
-              terminalError = compact(event.data.error || event.data.message || "Tentative Vibe échouée");
+              terminalError = compact(event.data.error || event.data.message || "Failed Vibe attempt");
             }
           }
           if (done) break;
@@ -170,7 +170,7 @@ export function createVibeWorkerExecutor(vibe) {
           const list = Array.isArray(messages) ? messages : messages.messages || [];
           content = [...list].reverse().find((message) => message.role === "assistant")?.content || "";
         }
-        if (!terminal && !content) throw new Error("Le flux Vibe s’est terminé sans résultat final");
+        if (!terminal && !content) throw new Error("The Vibe stream ended with no final results");
         return { output: { content, sessionId }, tokensUsed: usage.tokens, costUsd: usage.costUsd };
       } finally {
         signal.removeEventListener("abort", cancelUpstream);
@@ -195,7 +195,7 @@ export function createRunOrchestrator({ store, executor, maxConcurrency = 2 }) {
     const abortWorker = () => workerController.abort(controller.signal.reason);
     controller.signal.addEventListener("abort", abortWorker, { once: true });
     const timeoutMs = Math.min(node.agent.budget.maxDurationMinutes, run.snapshot.team.budget.maxDurationMinutes) * 60_000;
-    const timeout = setTimeout(() => workerController.abort(new Error("Délai worker dépassé")), timeoutMs);
+    const timeout = setTimeout(() => workerController.abort(new Error("Worker deadline exceeded")), timeoutMs);
     timeout.unref?.();
     try {
       const result = await executor.execute({
@@ -211,11 +211,11 @@ export function createRunOrchestrator({ store, executor, maxConcurrency = 2 }) {
       const tokenExceeded = result.tokensUsed != null && result.tokensUsed > node.agent.budget.maxTokens;
       const costExceeded = result.costUsd != null && node.agent.budget.maxCostUsd > 0 && result.costUsd > node.agent.budget.maxCostUsd;
       if (tokenExceeded || costExceeded) {
-        store.failWorker(worker.id, tokenExceeded ? "Budget tokens du worker dépassé" : "Budget coût du worker dépassé", "failed", result);
+        store.failWorker(worker.id, tokenExceeded ? "Worker token budget exceeded" : "Worker cost budget exceeded", "failed", result);
       } else store.completeWorker(worker.id, result);
     } catch (error) {
       const cancelled = controller.signal.aborted || store.getRun(run.id)?.cancelRequestedAt;
-      store.failWorker(worker.id, cancelled ? "Annulé par l’opérateur" : error?.message || error, cancelled ? "cancelled" : "failed");
+      store.failWorker(worker.id, cancelled ? "Canceled by operator" : error?.message || error, cancelled ? "cancelled" : "failed");
     } finally {
       clearTimeout(timeout);
       controller.signal.removeEventListener("abort", abortWorker);
@@ -232,26 +232,26 @@ export function createRunOrchestrator({ store, executor, maxConcurrency = 2 }) {
         if (controller.signal.aborted || run.cancelRequestedAt) {
           controller.abort();
           await Promise.allSettled([...inFlight.values()]);
-          store.finishRun(runId, "cancelled", "Annulé par l’opérateur");
+          store.finishRun(runId, "cancelled", "Canceled by operator");
           return;
         }
         const runAge = run.startedAt ? Date.now() - Date.parse(run.startedAt) : 0;
         if (runAge > run.snapshot.team.budget.maxDurationMinutes * 60_000) {
-          controller.abort(new Error("Budget de durée du run dépassé"));
+          controller.abort(new Error("Run duration budget exceeded"));
           await Promise.allSettled([...inFlight.values()]);
-          store.finishRun(runId, "failed", "Budget de durée du run dépassé");
+          store.finishRun(runId, "failed", "Run duration budget exceeded");
           return;
         }
         if (run.tokensUsed != null && run.tokensUsed > run.snapshot.team.budget.maxTokens) {
-          controller.abort(new Error("Budget tokens du run dépassé"));
+          controller.abort(new Error("Run token budget exceeded"));
           await Promise.allSettled([...inFlight.values()]);
-          store.finishRun(runId, "failed", "Budget tokens du run dépassé");
+          store.finishRun(runId, "failed", "Run token budget exceeded");
           return;
         }
         if (run.costUsd != null && run.snapshot.team.budget.maxCostUsd > 0 && run.costUsd > run.snapshot.team.budget.maxCostUsd) {
-          controller.abort(new Error("Budget coût du run dépassé"));
+          controller.abort(new Error("Run cost budget exceeded"));
           await Promise.allSettled([...inFlight.values()]);
-          store.finishRun(runId, "failed", "Budget coût du run dépassé");
+          store.finishRun(runId, "failed", "Run cost budget exceeded");
           return;
         }
 
@@ -261,9 +261,9 @@ export function createRunOrchestrator({ store, executor, maxConcurrency = 2 }) {
           const node = run.snapshot.nodes.find((candidate) => candidate.key === worker.nodeKey);
           if (worker.attempt <= (node?.agent?.budget?.maxRetries ?? 0)) store.queueWorkerRetry(worker);
           else {
-            controller.abort(new Error("Budget de retries épuisé"));
+            controller.abort(new Error("Retries budget exhausted"));
             await Promise.allSettled([...inFlight.values()]);
-            store.finishRun(runId, "failed", `${node?.label || worker.nodeKey} a épuisé son budget de retries`);
+            store.finishRun(runId, "failed", `${node?.label || worker.nodeKey}has exhausted its retries budget`);
             return;
           }
         }
@@ -285,7 +285,7 @@ export function createRunOrchestrator({ store, executor, maxConcurrency = 2 }) {
           inFlight.set(worker.id, task);
         }
         if (!inFlight.size) {
-          store.finishRun(runId, "failed", "Aucun worker exécutable ; DAG bloqué");
+          store.finishRun(runId, "failed", "No executable workers; DAG blocked");
           return;
         }
         await Promise.race([...inFlight.values()]);
@@ -310,7 +310,7 @@ export function createRunOrchestrator({ store, executor, maxConcurrency = 2 }) {
   function cancel(runId) {
     const entry = active.get(runId);
     if (entry) entry.controller.abort();
-    else store.finishRun(runId, "cancelled", "Annulé avant exécution");
+    else store.finishRun(runId, "cancelled", "Canceled before execution");
   }
 
   function recover() {

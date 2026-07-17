@@ -10,12 +10,12 @@ export function ActivityPage() {
   const [error, setError] = useState("");
   const load = useCallback(() => api<{ activity: ActivityEvent[] }>("/activity?limit=100")
     .then((result) => { setEvents(result.activity); setError(""); })
-    .catch((cause) => setError(cause instanceof Error ? cause.message : "Ledger indisponible")), []);
+    .catch((cause) => setError(cause instanceof Error ? cause.message : "Ledger unavailable")), []);
   useEffect(() => { void load(); }, [load]);
   const filtered = useMemo(() => events.filter((event) => `${event.type} ${event.message}`.toLowerCase().includes(query.toLowerCase())), [events, query]);
-  return <div className="page activity-page"><PageHeader eyebrow="Persistent event ledger" title="Activity" description="Événements réellement écrits par le control-plane, classés du plus récent au plus ancien." actions={<button className="button secondary" onClick={() => void load()}><RefreshCw size={14} />Actualiser</button>} />
+  return <div className="page activity-page"><PageHeader eyebrow="Persistent event ledger" title="Activity" description="Events actually written by the control-plane, ordered from newest to oldest." actions={<button className="button secondary" onClick={() => void load()}><RefreshCw size={14} />Refresh</button>} />
     {error && <div className="agent-alert"><CircleAlert size={14} />{error}</div>}
-    <div className="toolbar reveal delay-1"><div className="toolbar-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un événement…" /></div><button className="button secondary" disabled><Filter size={14} />{filtered.length} événements</button><span className="ledger-integrity"><CheckCircle2 size={13} />SQLite WAL</span></div>
-    <section className="real-activity-ledger glass-panel reveal delay-2">{filtered.map((event) => <article key={event.id}><i className={event.level} /><time>{new Date(event.createdAt).toLocaleString("fr-FR")}</time><span><strong>{event.message}</strong><small>{event.type}{event.jobId ? ` · job ${event.jobId.slice(0, 8)}` : ""}</small></span><em>{event.level}</em></article>)}{!filtered.length && <div className="observatory-empty"><Activity size={18} /><span>Aucun événement correspondant.</span></div>}</section>
+    <div className="toolbar reveal delay-1"><div className="toolbar-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search for an event…" /></div><button className="button secondary" disabled><Filter size={14} />{filtered.length} events</button><span className="ledger-integrity"><CheckCircle2 size={13} />SQLite WAL</span></div>
+    <section className="real-activity-ledger glass-panel reveal delay-2">{filtered.map((event) => <article key={event.id}><i className={event.level} /><time>{new Date(event.createdAt).toLocaleString("en-US")}</time><span><strong>{event.message}</strong><small>{event.type}{event.jobId ? ` · job ${event.jobId.slice(0, 8)}` : ""}</small></span><em>{event.level}</em></article>)}{!filtered.length && <div className="observatory-empty"><Activity size={18} /><span>No matching events.</span></div>}</section>
   </div>;
 }

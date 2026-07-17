@@ -1,127 +1,127 @@
-# Phase 2 — moteur Vibe réel
+# Phase 2 — real Vibe engine
 
-Statut : implémenté et validé le 17 juillet 2026.
+Status: implemented and validated on July 17, 2026.
 
-## 1. Objectif
+## 1. Objective
 
-Remplacer entièrement le cockpit Vibe simulé par un moteur privé, persistant et
-observable. Orbit reste l’unique frontière publique et le navigateur ne reçoit
-ni credential provider, ni clé de service, ni chemin absolu du VPS.
+Completely replace the simulated Vibe cockpit with a private, persistent and
+observable. Orbit remains the only public border and the navigator does not receive
+neither credential provider, nor service key, nor absolute path of the VPS.
 
-Cette phase fournit le laboratoire conversationnel Vibe. Elle ne lance aucun
-ordre, ne connecte aucun broker live et ne construit pas encore l’éditeur
-d’agents versionnés de Phase 3.
+This phase provides the Vibe conversational lab. It does not launch any
+order, does not connect any live broker and does not yet build the editor
+of versioned Phase 3 agents.
 
-## 2. Décision provider
+## 2. Provider decision
 
-L’utilisateur possède un abonnement ChatGPT incluant Codex. Vibe utilise donc le
-provider `openai-codex` et son OAuth ChatGPT dédié, sans `OPENAI_API_KEY` et sans
-facturation API OpenAI séparée. L’autorisation initiale est une opération locale
-unique, stockée dans le HOME privé de l’utilisateur de service Vibe.
+The user has a ChatGPT subscription including Codex. Vibe therefore uses the
+provider `openai-codex` and its dedicated OAuth ChatGPT, without `OPENAI_API_KEY` and without
+Separate OpenAI API billing. Initial authorization is a local operation
+unique, stored in the private HOME of the Vibe service user.
 
-Tant que cette autorisation n’est pas terminée, l’interface doit distinguer :
+Until this authorization is completed, the interface must distinguish:
 
-- moteur démarré ;
-- provider configuré ;
-- provider autorisé ;
-- session prête à exécuter.
+- engine started;
+- provider configured;
+- authorized provider;
+- session ready to run.
 
-## 3. Déploiement et isolation
+## 3. Deployment and isolation
 
-- Révision Vibe épinglée : `86f6012e00120e3fa5c3f0e15be8c94abe732dcf`.
-- Cette révision est postérieure à `v0.1.11` et contient les correctifs de
-  sécurité, de provider et de sessions retenus pendant l’audit.
-- Utilisateur système dédié sans shell interactif.
-- Code et environnement Python sous `/opt/vibe-trading`.
-- État durable sous `/var/lib/vibe-trading`, permissions privées.
-- Configuration sensible sous `/etc/vibe-trading`, hors Git.
-- Écoute stricte sur `127.0.0.1:8899`.
-- Outils shell explicitement désactivés.
-- Vibe n’est jamais routé directement par Caddy/ngrok.
-- Service systemd durci et redémarré automatiquement.
+- Pinned Vibe review: `86f6012e00120e3fa5c3f0e15be8c94abe732dcf`.
+- This revision is after `v0.1.11` and contains fixes for
+security, provider and sessions retained during the audit.
+- Dedicated system user without interactive shell.
+- Python code and environment under `/opt/vibe-trading`.
+- Sustainable state under `/var/lib/vibe-trading`, private permissions.
+- Sensitive configuration under `/etc/vibe-trading`, outside Git.
+- Strict listening on `127.0.0.1:8899`.
+- Shell tools explicitly disabled.
+- Vibe is never routed directly by Caddy/ngrok.
+- Systemd service hardened and restarted automatically.
 
-## 4. Frontière Orbit ↔ Vibe
+## 4. Orbit Border ↔ Vibe
 
-Orbit expose une API allowlistée sous `/api/vibe`, authentifiée par la session
-Orbit et protégée par le contrôle d’origine existant. Le proxy :
+Orbit exposes an allow API listed under `/api/vibe`, authenticated by the session
+Orbit and protected by the existing original control. The proxy:
 
-- borne les délais, tailles de requête et tailles de réponse ;
-- ajoute le credential interne uniquement côté serveur ;
-- ne transmet aucun header arbitraire du navigateur ;
-- relaie les événements SSE sans buffering ;
-- conserve `Last-Event-ID` pour la reconnexion ;
-- transforme les erreurs réseau en états explicites et expurgés ;
-- interdit les routes inconnues et les changements de settings/provider depuis
-  le navigateur pendant cette phase.
+- limits deadlines, request sizes and response sizes;
+- adds the internal credential only on the server side;
+- does not transmit any arbitrary browser headers;
+- relays SSE events without buffering;
+- keep `Last-Event-ID` for reconnection;
+- transforms network errors into explicit and redacted states;
+- prohibits unknown routes and settings/provider changes from
+the browser during this phase.
 
-Routes produit : santé/capacités, skills, presets, sessions, messages, annulation,
-événements, uploads et artifacts/runs en lecture.
+Product routes: health/abilities, skills, presets, sessions, messages, cancellation,
+events, uploads and artifacts/runs in reading.
 
-## 5. Expérience utilisateur
+## 5. User experience
 
-La page Vibe affiche uniquement des données réelles :
+The Vibe page only shows real data:
 
-1. santé moteur et état provider ;
-2. création, sélection, renommage et suppression de sessions ;
-3. historique persistant des messages ;
-4. envoi d’un objectif de recherche ;
-5. flux temps réel des tentatives, outils, résultats et erreurs ;
-6. annulation d’une tentative active ;
-7. catalogue réel des skills et presets ;
-8. uploads et artifacts disponibles lorsque le moteur les expose ;
-9. états vide, chargement, reconnexion, indisponible et non autorisé.
+1. motor health and provider status;
+2. creation, selection, renaming and deletion of sessions;
+3. persistent message history;
+4. sending a research objective;
+5. real-time flow of attempts, tools, results and errors;
+6. cancellation of an active attempt;
+7. real catalog of skills and presets;
+8. uploads and artifacts available when the engine exposes them;
+9. empty, loading, reconnection, unavailable and unauthorized states.
 
-Il ne reste aucun texte qui prétend simuler une réponse, un run ou un statut.
+There remains no text that purports to simulate a response, a run or a status.
 
-## 6. Persistance et reprise
+## 6. Persistence and recovery
 
-- Les sessions/messages Vibe restent la source canonique de la conversation.
-- Les données survivent au restart de Vibe, d’Orbit et du VPS.
-- Un flux SSE peut reprendre depuis son dernier identifiant connu sans dupliquer
-  les événements déjà affichés.
-- Un restart pendant une tentative se termine par un état récupéré ou une erreur
-  honnête ; jamais par un spinner permanent.
-- Aucune purge automatique n’est activée.
+- Vibe sessions/messages remain the canonical source of the conversation.
+- Data survives restart of Vibe, Orbit and VPS.
+- An SSE flow can resume from its last known identifier without duplicating
+events already displayed.
+- A restart during an attempt ends in a recovered state or an error
+honest ; never by a permanent spinner.
+- No automatic purge is activated.
 
-## 7. Sécurité et garde-fous
+## 7. Security and safeguards
 
-- Aucun secret dans Git, les réponses JSON, les logs ou le frontend.
-- Aucun accès direct du navigateur à `:8899`.
-- Aucun proxy générique vers Vibe.
-- Outils shell désactivés même pour les requêtes loopback.
-- Trading live et actions broker hors périmètre.
-- Taille d’un message : 5 000 caractères maximum, comme le contrat Vibe.
-- Uploads bornés au contrat Vibe et jamais servis par chemin arbitraire.
-- Les erreurs sont expurgées avant audit et réponse.
+- No secrets in Git, JSON responses, logs or frontend.
+- No direct browser access to `:8899`.
+- No generic proxy to Vibe.
+- Disabled shell tools even for loopback requests.
+- Live trading and stock brokers outside the scope.
+- Message size: 5,000 characters maximum, like the Vibe contract.
+- Uploads limited to the Vibe contract and never served by arbitrary path.
+- Errors are redacted before audit and response.
 
-## 8. Critères d’acceptation
+## 8. Acceptance criteria
 
-La phase est acceptée si :
+The phase is accepted if:
 
-1. Vibe est actif après restart et n’écoute que sur loopback ;
-2. la révision réellement exécutée correspond au SHA épinglé ;
-3. aucun `OPENAI_API_KEY` n’est nécessaire ;
-4. santé, skills et presets sont relus via Orbit ;
-5. une session et ses messages survivent à un restart ;
-6. les événements SSE traversent Orbit et se reconnectent sans duplication ;
-7. l’absence d’OAuth produit un état guidé, sans crash ni faux « ready » ;
-8. les routes Vibe non allowlistées sont inaccessibles ;
-9. les tests Orbit et les tests Vibe ciblés sont verts ;
-10. le lien public Orbit reste fonctionnel et aucun secret n’est publié.
+1. Vibe is active after restart and only listens on loopback;
+2. the revision actually executed matches the pinned SHA;
+3. no `OPENAI_API_KEY` is needed;
+4. health, skills and presets are read back via Orbit;
+5. a session and its messages survive a restart;
+6. SSE events pass through Orbit and reconnect without duplication;
+7. the absence of OAuth produces a guided state, without crashes or false “ready”;
+8. non-allowlisted Vibe routes are inaccessible;
+9. Orbit tests and targeted Vibe tests are green;
+10. The Orbit public link remains functional and no secrets are published.
 
 ## 9. Rollback
 
-Le rollback arrête et désactive `vibe-trading.service`, restaure l’unité Orbit
-précédente si nécessaire et retire les variables `VIBE_*` d’Orbit. Les données
-de `/var/lib/vibe-trading` sont conservées. Aucun rollback ne doit supprimer les
-sessions, tokens OAuth ou artifacts sans action explicite.
+Rollback stops and disables `vibe-trading.service`, restores Orbit unit
+previous if necessary and removes the `VIBE_*` variables from Orbit. The data
+of `/var/lib/vibe-trading` are retained. No rollback should delete the
+sessions, OAuth tokens or artifacts without explicit action.
 
-## 10. Validation réalisée
+## 10. Validation carried out
 
-- OAuth ChatGPT/Codex autorisé sous l’utilisateur de service, sans clé API.
-- `/health` et `/ready` répondent 200 avec le provider `openai-codex` prêt.
-- Smoke test réel via Orbit : session, message, réponse exacte
-  `VIBE_PHASE_2_OK`, événements SSE et suppression de la session de test.
-- Persistance d’une session vérifiée après restart du service.
-- 26 tests Orbit et 92 tests Vibe ciblés réussis.
-- Skills et presets réellement observés : 87 et 30 sur la révision épinglée.
+- OAuth ChatGPT/Codex allowed under service user, without API key.
+- `/health` and `/ready` respond 200 with provider `openai-codex` ready.
+- Real smoke test via Orbit: session, message, exact response
+`VIBE_PHASE_2_OK`, SSE events and test session deletion.
+- Persistence of a verified session after restart of the service.
+- 26 Orbit tests and 92 targeted Vibe tests passed.
+- Skills and presets actually observed: 87 and 30 on the pinned review.

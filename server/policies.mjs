@@ -14,7 +14,7 @@ const policies = Object.freeze({
 
 export class PolicyError extends Error {
   constructor(action) {
-    super(`Action non autorisée dans cette phase : ${action}`);
+    super(`Action not authorized in this phase: ${action}`);
     this.name = "PolicyError";
     this.code = "policy_denied";
   }

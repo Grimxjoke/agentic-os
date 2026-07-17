@@ -1,98 +1,98 @@
-# Phase 3 — Agent Lab et Runs
+# Phase 3 — Agent Lab and Runs
 
-Statut : implémenté et validé le 17 juillet 2026.
+Status: implemented and validated on July 17, 2026.
 
-## 1. Objectif
+## 1. Objective
 
-Transformer les agents décoratifs du dashboard en définitions persistantes,
-versionnées et exécutables. Une équipe devient un DAG immuable au moment du
-lancement ; chaque run conserve sa définition, ses workers, ses événements, ses
-budgets, ses erreurs et ses artifacts.
+Transform the decorative agents of the dashboard into persistent definitions,
+versioned and executable. A team becomes an immutable DAG at the time of
+launch ; each run retains its definition, its workers, its events, its
+budgets, its errors and its artifacts.
 
-## 2. Tranche initiale — registre d’agents
+## 2. Initial tranche — register of agents
 
-La première tranche remplace `localStorage` et les fixtures de l’Agent Lab par :
+The first workstream replaces `localStorage` and the Agent Lab fixtures with:
 
-- une identité stable par agent ;
-- des versions immuables et ordonnées ;
-- un modèle/provider, des instructions, tools et skills explicites ;
-- des budgets tokens, coût, durée et retries ;
-- des policies filesystem, réseau et trading ;
-- une API Orbit validée et auditée ;
-- une interface honnête pour créer et réviser un agent.
+- a stable identity per agent;
+- immutable and ordered versions;
+- a model/provider, explicit instructions, tools and skills;
+- token budgets, cost, duration and retries;
+- filesystem, network and trading policies;
+- a validated and audited Orbit API;
+- an honest interface for creating and reviewing an agent.
 
-Modifier un agent ne réécrit jamais sa version précédente. Les futurs runs
-référenceront l’identifiant exact de la version utilisée.
+Editing an agent never rewrites its previous version. Future runs
+will reference the exact identifier of the version used.
 
-## 3. Équipes et DAG
+## 3. Teams and DAG
 
-Une équipe possède une identité stable et des versions immuables. Chaque version
-contient des nœuds qui référencent une version d’agent et des arêtes de
-dépendance. Le serveur refuse :
+A team has a stable identity and immutable versions. Each version
+contains nodes that reference an agent version and edges of
+dependence. The server refuses:
 
-- les cycles ;
-- les références inconnues ou archivées ;
-- les nœuds sans identifiant unique ;
-- les budgets supérieurs aux limites opérateur ;
-- une concurrence incompatible avec la capacité configurée.
+- cycles;
+- unknown or archived references;
+- nodes without a unique identifier;
+- budgets above operator limits;
+- competition incompatible with the configured capacity.
 
 ## 4. Runs
 
-Un lancement matérialise un snapshot d’équipe et crée un run durable. Les états
-canoniques sont `queued`, `running`, `degraded`, `completed`, `failed` et
-`cancelled`. Chaque worker possède sa propre tentative et sa timeline.
+A launch materializes a team snapshot and creates a lasting run. The states
+canonical are `queued`, `running`, `degraded`, `completed`, `failed` and
+`cancelled`. Each worker has its own attempt and timeline.
 
-Le control-plane doit supporter lancement, annulation, retry borné, reprise après
-refresh navigateur et réconciliation après restart. Les tokens, coûts, erreurs et
-artifacts sont des données mesurées ; une valeur indisponible reste `null`.
+The control plane must support launch, cancellation, limited retry, recovery after
+refresh browser and reconciliation after restart. Tokens, costs, errors and
+artifacts are measured data; an unavailable value remains `null`.
 
-## 5. Temps réel et observabilité
+## 5. Real time and observability
 
-- événements ordonnés et dédupliqués ;
-- flux SSE reprenable avec le dernier identifiant connu ;
-- timeline par worker et timeline globale ;
-- progression calculée depuis les états persistés ;
-- Observatory alimenté par les runs, sans fixture parallèle ;
-- audit des créations, révisions, lancements, retries et annulations.
+- ordered and deduplicated events;
+- SSE flow resumeable with the last known identifier;
+- per-worker and global timelines;
+- progression calculated from persisted states;
+- Observatory powered by runs, without parallel fixture;
+- audit of creations, revisions, launches, retries and cancellations.
 
-## 6. Sécurité
+## 6. Security
 
-- aucune commande shell arbitraire depuis l’éditeur ;
-- tools et skills stockés comme identifiants, jamais comme code exécutable ;
-- trading désactivé dans les policies de cette phase ;
-- budgets validés côté serveur ;
-- secrets exclus des définitions et événements ;
-- versions historiques non modifiables, même par une mise à jour SQL ordinaire.
+- no arbitrary shell commands from the editor;
+- tools and skills stored as identifiers, never as executable code;
+- trading disabled in the policies of this phase;
+- budgets validated on the server side;
+- secrets excluded from definitions and events;
+- historical versions not modifiable, even by an ordinary SQL update.
 
-## 7. Critères d’acceptation
+## 7. Acceptance criteria
 
-1. créer un agent puis une nouvelle version sans altérer la première ;
-2. retrouver le registre après restart ;
-3. créer une équipe valide et refuser un DAG cyclique ;
-4. lancer une équipe et suivre chaque worker en temps réel ;
-5. annuler et retry sans perdre les événements antérieurs ;
-6. rafraîchir le navigateur pendant un run et retrouver l’état exact ;
-7. borner la concurrence pour le VPS 2 vCPU ;
-8. présenter tokens, coût, artifacts et erreurs réels ;
-9. alimenter Observatory depuis les mêmes données canoniques ;
-10. maintenir build, migrations et tests au vert.
+1. create an agent then a new version without altering the first;
+2. find the register after restart;
+3. create a valid team and refuse a cyclical DAG;
+4. launch a team and follow each worker in real time;
+5. cancel and retry without losing previous events;
+6. refresh the browser during a run and find the exact state;
+7. limit competition for VPS 2 vCPU;
+8. present real tokens, cost, artifacts and errors;
+9. feed Observatory from the same canonical data;
+10. keep build, migrations and tests green.
 
-## 8. Hors périmètre
+## 8. Outside the perimeter
 
-- génération et backtests quantitatifs complets (Phase 5) ;
-- boucle évolutionnaire autonome (Phase 6) ;
-- connexion broker paper ou live (Phases 7 et 8) ;
-- édition de fichiers et mémoire unifiée (Phase 4).
+- generation and complete quantitative backtests (Phase 5);
+- autonomous evolutionary loop (Phase 6);
+- paper or live broker connection (Phases 7 and 8);
+- file editing and unified memory (Phase 4).
 
-## 9. Validation réalisée
+## 9. Validation carried out
 
-- agents et équipes versionnés avec immutabilité SQLite ;
-- DAG cycliques et références inconnues refusés ;
-- concurrence réelle bornée à deux workers ;
-- exécution Vibe privée avec tool policies, budgets et trading interdit ;
-- cancel, retry et reprise après restart testés ;
-- événements append-only et SSE reprenable sans duplication ;
-- métriques inconnues conservées à `null` ;
-- chemins privés Vibe retirés des artifacts exposés ;
-- Agent Lab, Teams & Runs, Activity et Observatory connectés aux APIs réelles ;
-- build TypeScript/Vite et 37 tests unitaires/intégration réussis.
+- versioned agents and teams with SQLite immutability;
+- Cyclic DAGs and unknown references refused;
+- real competition limited to two workers;
+- private Vibe execution with tool policies, budgets and prohibited trading;
+- cancel, retry and restart after restart tested;
+- append-only events and SSE resumeable without duplication;
+- unknown metrics kept at `null`;
+- private Vibe paths removed from exposed artifacts;
+- Agent Lab, Teams & Runs, Activity and Observatory connected to real APIs;
+- TypeScript/Vite build and 37 unit/integration tests passed.

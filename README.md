@@ -2,82 +2,82 @@
 
 # Orbit Trading Agent OS
 
-**Un cockpit privé pour concevoir, lancer et observer des équipes d’agents de recherche quantitative.**
+**A private cockpit to design, launch and observe teams of quantitative research agents.**
 
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
 [![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![SQLite WAL](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![Phase 3 validée](https://img.shields.io/badge/roadmap-Phase_3_valid%C3%A9e-18c8c8)](#roadmap)
+[![Phase 3 validated](https://img.shields.io/badge/roadmap-Phase_3_validated-18c8c8)](#roadmap)
 
-[Vision](#vision) · [Fonctionnalités](#fonctionnalités-disponibles) · [Architecture](#architecture) · [Démarrage](#démarrage-local) · [Roadmap](#roadmap) · [Documentation](#documentation)
+[Vision](#vision) · [Features](#available-features) · [Architecture](#architecture) · [Startup](#local-boot) · [Roadmap](#roadmap) · [Documentation](#documentation)
 
 </div>
 
 > [!IMPORTANT]
-> Orbit est actuellement un produit **mono-utilisateur** et **paper-first**. Le trading live, les connexions broker et toute prise de risque financière sont hors du périmètre livré.
+> Orbit is currently a **single-user** and **paper-first** product. Live trading, broker connections and any financial risk taking are outside the scope delivered.
 
 ## Vision
 
-Orbit transforme un objectif de trading exprimé en langage naturel en travail agentique persistant, observable et reproductible. Le dashboard réunit les conversations, les jobs, les événements, les décisions, les artifacts et la santé du système derrière une seule frontière web authentifiée.
+Orbit transforms a trading objective expressed in natural language into persistent, observable and repeatable agentic work. The dashboard brings together conversations, jobs, events, decisions, artifacts and system health behind a single authenticated web border.
 
-Le projet suit trois principes simples :
+The project follows three simple principles:
 
-- **réel ou explicitement indisponible** — aucune métrique métier fictive en production ;
-- **autonomie bornée** — permissions, budgets et limites sont portés par le code et les données ;
-- **traçabilité par défaut** — les actions importantes survivent au navigateur et restent auditables.
+- **real or explicitly unavailable** — no fictitious business metrics in production;
+- **bounded autonomy** — permissions, budgets and limits are carried by code and data;
+- **traceability by default** — important actions survive the browser and remain auditable.
 
-## Fonctionnalités disponibles
+## Available features
 
 ### Control plane Orbit
 
-- session navigateur révocable et contrôle d’origine ;
-- conversations PI et Codex persistées dans SQLite ;
-- modèle durable `Job / Event / Decision / Audit` ;
-- migrations versionnées, sauvegarde cohérente et reprise des jobs stale ;
-- liveness, readiness et vue système fondées sur l’état réel ;
-- exposition publique unique, services internes limités au loopback.
+- revocable browser session and origin control;
+- PI and Codex conversations persisted in SQLite;
+- durable model `Job / Event / Decision / Audit`;
+- versioned migrations, consistent backup and recovery of stale jobs;
+- liveness, readiness and system view based on the actual state;
+- a single public entry point, with internal services restricted to loopback.
 
-### Cockpit Vibe réel
+### Real Cockpit Vibe
 
-- moteur [vibe-trading](https://github.com/virattt/vibe-trading) épinglé et isolé par service systemd ;
-- OAuth ChatGPT/Codex via le provider `openai-codex`, sans clé API dans le navigateur ;
-- sessions, messages et historique persistants ;
-- événements temps réel relayés en SSE avec reprise par `Last-Event-ID` ;
-- catalogue réel de **87 skills** et **30 presets** sur la révision validée ;
-- uploads et artifacts exposés uniquement par des contrats allowlistés ;
-- annulation, reconnexion et erreurs expurgées.
+- [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) engine pinned and isolated by a systemd service;
+- OAuth ChatGPT/Codex via the `openai-codex` provider, without API key in the browser;
+- persistent sessions, messages and history;
+- real-time events relayed in SSE with recovery by `Last-Event-ID`;
+- real catalog of **87 skills** and **30 presets** on the validated revision;
+- uploads and artifacts exposed only by allowlisted contracts;
+- cancellation, reconnection, and redacted errors.
 
-### Agent Lab et Runs
+### Agent Lab and Runs
 
-- agents et équipes versionnés avec historique immuable ;
-- éditeur de DAG, validation des cycles et concurrence bornée à deux workers ;
-- snapshots exacts des définitions exécutées ;
-- orchestration Vibe durable avec cancel, retry et reprise après restart ;
-- timeline SSE reprenable, usage provider et artifacts référencés ;
-- Observatory et Activity alimentés par les données persistantes réelles.
+- versioned agents and teams with immutable history;
+- DAG editor, cycle validation, and concurrency limited to two workers;
+- exact snapshots of executed definitions;
+- durable Vibe orchestration with cancellation, retry, and restart recovery;
+- resumable SSE timeline, provider-reported usage, and referenced artifacts;
+- Observatory and Activity powered by real persistent data.
 
 ### Interface
 
-- cockpit spatial React/Vite utilisable sur desktop et tablette ;
-- Vibe, conversations, activité, usage, système et observabilité ;
-- états vides, chargement, indisponibilité et reconnexion honnêtes ;
-- respect de `prefers-reduced-motion` et navigation clavier.
+- React/Vite space cockpit usable on desktop and tablet;
+- Vibe, conversations, activity, usage, system and observability;
+- honest empty states, loading, unavailability and reconnection;
+- respect for `prefers-reduced-motion` and keyboard navigation.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    U["Navigateur de l’opérateur"] -->|"HTTPS + session révocable"| E["Entrée publique"]
+    U["Operator browser"] -->|"HTTPS + revocable session"| E["Public entry point"]
     E --> O["Orbit BFF · Node.js"]
     O --> DB[("SQLite WAL")]
-    O --> FS["Artifacts bornés"]
-    O -->|"REST allowlisté + SSE"| V["Vibe Engine"]
+    O --> FS["Bounded artifacts"]
+    O -->|"Allowlisted REST + SSE"| V["Vibe Engine"]
     O --> PI["Runtime PI"]
     O --> CX["Runtime Codex"]
     V --> OA["OAuth ChatGPT / Codex"]
 
-    subgraph Private["Services privés · loopback only"]
+    subgraph Private["Private services · loopback only"]
       O
       V
       DB
@@ -87,131 +87,132 @@ flowchart LR
     end
 ```
 
-Orbit est l’unique frontière publique. Le navigateur ne reçoit ni credential provider, ni clé interne Vibe, ni chemin absolu du serveur. Le proxy Vibe n’est pas générique : chaque route, méthode et type de contenu est explicitement autorisé.
+Orbit is the only public border. The browser receives neither credential provider, nor Vibe internal key, nor absolute path from the server. The Vibe proxy is not generic: every route, method, and content type is explicitly allowed.
 
 ## Stack
 
-| Couche | Technologie | Responsabilité |
+| Layer | Technology | Responsibility |
 |---|---|---|
-| Interface | React 19, TypeScript, Vite | cockpit et vues opérationnelles |
+| Interface | React 19, TypeScript, Vite | cockpit and operational views |
 | BFF | Node.js 22 | auth, API Orbit, proxy Vibe, SSE |
-| Control plane | SQLite en mode WAL | sessions, jobs, événements, décisions, audit |
-| Moteur agents | vibe-trading | conversations, skills, presets et artifacts |
-| Exploitation | systemd, Caddy, ngrok | isolation, restart et accès privé |
-| Tests | `node:test` | contrats, intégration, sécurité et persistance |
+| Control plane | SQLite in WAL mode | sessions, jobs, events, decisions, audit |
+| Agent engine | vibe-trading | conversations, skills, presets, and artifacts |
+| Operations | systemd, Caddy, ngrok | isolation, restart, and private access |
+| Tests | `node:test` | contracts, integration, security and persistence |
 
-## Démarrage local
+## Local boot
 
-### Prérequis
+### Prerequisites
 
-- Node.js 22 ;
-- npm ;
-- un token d’accès Orbit pour exécuter le serveur ;
-- Vibe uniquement si vous souhaitez tester le cockpit agentique réel.
+- Node.js 22;
+- npm;
+- an Orbit access token to run the server;
+- Vibe only if you want to test the real agentic cockpit.
 
 ```bash
-git clone https://github.com/Grimxjoke/agentic-os.git
-cd agentic-os
+git clone https://github.com/Grimxjoke/Orbit-Trading-Agent-OS.git
+cd Orbit-Trading-Agent-OS
 npm ci
 ```
 
-Créez ensuite votre configuration locale hors Git :
+Then create your local configuration outside Git:
 
 ```bash
-export ORBIT_ACCESS_TOKEN="votre-token-local"
+export ORBIT_ACCESS_TOKEN="your-local-token"
 export ORBIT_HOST="127.0.0.1"
 export ORBIT_PORT="8787"
 npm run dev
 ```
 
-L’interface est servie sous `/orbit/`. Les données locales sont créées par défaut dans `.orbit-data/`, un répertoire ignoré par Git.
+The interface is served as `/orbit/`. Local data is created by default in `.orbit-data/`, a directory ignored by Git.
 
 > [!CAUTION]
-> Ne publiez jamais de token Orbit, de credential OAuth, de clé Vibe ou de fichier issu de `/etc/orbit-os`, `/etc/vibe-trading` ou des répertoires de données privés.
+> Never publish an Orbit token, OAuth credential, Vibe key or file from `/etc/orbit-os`, `/etc/vibe-trading` or private data directories.
 
-## Commandes utiles
+## Useful commands
 
 ```bash
-npm run build          # compilation TypeScript + bundle Vite
-npm test               # build puis suite unitaire/intégration
-npm run db:migrate     # migrations SQLite
-npm run db:backup      # sauvegarde cohérente de la base
-npm run check:health   # probes de santé configurées
-npm start              # serveur de production
+npm run build          # TypeScript compilation + Vite bundle
+npm test               # build, then unit/integration suite
+npm run db:migrate     # SQLite migrations
+npm run db:backup      # consistent database backup
+npm run check:health   # configured health probes
+npm start              # production server
 ```
 
-## Validation actuelle
+## Current validation
 
-La Phase 2 a été validée le **17 juillet 2026** avec :
+Phase 2 was validated on **July 17, 2026** with:
 
-- **26 tests Orbit** et **92 tests Vibe ciblés** réussis ;
-- un smoke test LLM réel via Orbit ;
-- la persistance d’une session après restart ;
-- le flux SSE complet relayé par le BFF ;
-- les probes internes et publiques au vert ;
-- un scan du code, du diff, des logs et de l’historique Git sans secret détecté.
+- **26 Orbit tests** and **92 targeted Vibe tests** passed;
+- a real LLM smoke test via Orbit;
+- the persistence of a session after restart;
+- the complete SSE flow relayed by the BFF;
+- internal and public probes are green;
+- a scan of the code, diff, logs and Git history with no secrets detected.
 
-La Phase 3 ajoute un build réussi et **37 tests Orbit** couvrant notamment DAG,
-concurrence, budgets, policies, cancel, retry, reprise, SSE et orchestration Vibe.
+Phase 3 adds a successful build and **37 Orbit tests** including DAG,
+concurrency, budgets, policies, cancellation, retry, recovery, SSE, and Vibe orchestration.
 
 ## Roadmap
 
-| Phase | Statut | Résultat |
+| Phase | Status | Result |
 |---|---|---|
-| 0 · Baseline et réseau | ✅ Validée | exposition réduite, auth et restart éprouvés |
-| 1 · Control plane persistant | ✅ Validée | SQLite, migrations, jobs, audit et sauvegardes |
-| 2 · Vibe réel | ✅ Validée | moteur privé, OAuth, sessions, SSE et artifacts |
-| 3 · Agent Lab & Runs | ✅ Validée | agents versionnés, équipes DAG et runs observables |
-| 4 · Files, Memory, Knowledge | ⏳ Planifiée | fichiers bornés, provenance et graphe dérivé |
-| 5 · Strategy Factory | ⏳ Planifiée | backtests reproductibles et validations statistiques |
-| 6 · Experiment Studio | ⏳ Planifiée | générations, candidats et champion/challenger |
-| 7 · Paper Trading | ⏳ Planifiée | sandbox broker, ordres et réconciliation |
-| 8 · Hardening & Live Readiness | ⏳ Planifiée | reprise, rétention, sécurité et validation du mandat |
+| 0 · Baseline and network | ✅ Validated | reduced exposure, proven auth and restart |
+| 1 · Control plane persistent | ✅ Validated | SQLite, migrations, jobs, audit and backups |
+| 2 · Real Vibe | ✅ Validated | private engine, OAuth, sessions, SSE and artifacts |
+| 3 · Agent Lab & Runs | ✅ Validated | versioned agents, DAG teams and observable runs |
+| 4 · Files, Memory, Knowledge | ⏳ Planned | bounded files, provenance and derived graph |
+| 5 · Strategy Factory | ⏳ Planned | reproducible backtests and statistical validations |
+| 6 · Experiment Studio | ⏳ Planned | generations, candidates and champion/challenger |
+| 7 · Paper Trading | ⏳ Planned | sandbox broker, orders and reconciliation |
+| 8 · Hardening & Live Readiness | ⏳ Planned | recovery, retention, security and validation of the mandate |
 
-La roadmap détaillée et les critères de sortie se trouvent dans le [plan d’implémentation](docs/IMPLEMENTATION_PLAN.md).
+The detailed roadmap and exit criteria can be found in the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
 
-## Structure du dépôt
+## Repository structure
 
 ```text
-agentic-os/
-├── src/                 # interface React et client API
-├── server/              # BFF, auth, stockage, policies et proxy Vibe
+Orbit-Trading-Agent-OS/
+├── src/                 # React interface and API client
+├── server/              # BFF, auth, storage, policies, and Vibe proxy
 │   └── migrations/      # migrations SQLite forward-only
-├── test/                # tests unitaires et d’intégration
-├── deploy/              # unités systemd et configuration d’exploitation
-├── scripts/             # migrations, backups et healthchecks
-└── docs/                # PRD, plans, runbooks et architecture
+├── test/                # unit and integration tests
+├── deploy/              # systemd units and operations configuration
+├── scripts/             # migrations, backups, and health checks
+└── docs/                # PRD, plans, runbooks, and architecture
 ```
 
-## Sécurité et limites
+## Safety and limits
 
-- aucun service métier interne ne doit écouter sur une interface publique ;
-- aucun secret ne doit entrer dans Git, le frontend, les réponses JSON ou les logs ;
-- les actions sensibles passent par une policy explicite et un audit append-only ;
-- les écritures et uploads sont bornés par contrat ;
-- aucun live trading n’est activé ou implicitement autorisé ;
-- un état non vérifiable est présenté comme indisponible, jamais comme réussi.
+- no internal business service should listen on a public interface;
+- no secrets should enter Git, the frontend, JSON responses or logs;
+- sensitive actions go through an explicit policy and an append-only audit;
+- writings and uploads are limited by contract;
+- no live trading is activated or implicitly authorized;
+- an unverifiable state is presented as unavailable, never as successful.
 
-Pour signaler une vulnérabilité, évitez une issue publique contenant des détails exploitables ou des secrets. Utilisez le canal privé du propriétaire du dépôt.
+To report a vulnerability, avoid a public issue containing exploitable details or secrets. Use the repository owner's private channel.
 
 ## Documentation
 
-- [PRD produit](docs/PRD.md)
-- [Carte d’architecture](docs/ARCHITECTURE_MAP.md)
-- [Plan d’implémentation](docs/IMPLEMENTATION_PLAN.md)
+- [Product PRD](docs/PRD.md)
+- [Architecture map](docs/ARCHITECTURE_MAP.md)
+- [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 - [PRD Phase 2](docs/PHASE_2_PRD.md)
 - [Runbook Phase 2](docs/PHASE_2_RUNBOOK.md)
 - [PRD Phase 3](docs/PHASE_3_PRD.md)
 - [Plan Phase 3](docs/PHASE_3_PLAN.md)
 - [Runbook Phase 3](docs/PHASE_3_RUNBOOK.md)
+- [Phase 3 human acceptance test](docs/PHASE_3_HUMAN_TEST.md)
 - [Runbook Phase 0](docs/PHASE_0_RUNBOOK.md)
 
 ## Contribution
 
-Le projet est développé par tranches verticales démontrables. Une tranche n’est considérée terminée qu’avec ses tests, sa migration éventuelle, son observabilité et son chemin de rollback. Les commits doivent rester petits, intentionnels et réversibles.
+The project is developed in demonstrable vertical sections. A slice is only considered finished with its tests, its possible migration, its observability and its rollback path. Commits should be kept small, intentional, and reversible.
 
 ---
 
 <div align="center">
-  <strong>Orbit</strong> — rendre le travail agentique observable avant de le rendre autonome.
+<strong>Orbit</strong> — making agentic work observable before making it autonomous.
 </div>

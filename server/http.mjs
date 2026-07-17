@@ -37,7 +37,7 @@ export function json(res, status, payload, headers = {}) {
 
 export function unauthorized(res, pathname) {
   const safePath = String(pathname || "/orbit/").replace(/["<>]/g, "");
-  const body = `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width"><title>Orbit OS</title><style>body{font:16px system-ui;background:#0d1117;color:#e6edf3;display:grid;place-items:center;min-height:100vh;margin:0}main{width:min(480px,calc(100% - 64px));padding:32px;border:1px solid #30363d;border-radius:14px;background:#161b22}form{display:flex;gap:8px;margin-top:22px}input{min-width:0;flex:1;padding:12px;color:#e6edf3;background:#0d1117;border:1px solid #30363d;border-radius:8px}button{padding:12px 18px;color:#081018;background:#7ee787;border:0;border-radius:8px;font-weight:700}</style><main><h1>Accès protégé</h1><p>Saisissez votre jeton Orbit OS. Orbit créera une session révocable pour cet appareil.</p><form method=get action="${safePath}"><input type=password name=access autocomplete=current-password required autofocus placeholder="Jeton d’accès"><button>Ouvrir</button></form></main>`;
+  const body = `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width"><title>Orbit OS</title><style>body{font:16px system-ui;background:#0d1117;color:#e6edf3;display:grid;place-items:center;min-height:100vh;margin:0}main{width:min(480px,calc(100% - 64px));padding:32px;border:1px solid #30363d;border-radius:14px;background:#161b22}form{display:flex;gap:8px;margin-top:22px}input{min-width:0;flex:1;padding:12px;color:#e6edf3;background:#0d1117;border:1px solid #30363d;border-radius:8px}button{padding:12px 18px;color:#081018;background:#7ee787;border:0;border-radius:8px;font-weight:700}</style><main><h1>Protected Access</h1><p>Enter your Orbit OS token. Orbit will create a revocable session for this device.</p><form method=get action="${safePath}"><input type=password name=access autocomplete=current-password required autofocus placeholder="Access token"><button>Open</button></form></main>`;
   res.writeHead(401, securityHeaders({
     "Cache-Control": "no-store",
     "Content-Type": "text/html; charset=utf-8",
@@ -61,13 +61,13 @@ export async function readJson(req, limit = 24 * 1024) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > limit) throw new Error("Requête trop volumineuse");
+    if (size > limit) throw new Error("Query too large");
     chunks.push(chunk);
   }
   try {
     return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
   } catch {
-    throw new Error("Corps JSON invalide");
+    throw new Error("Invalid JSON body");
   }
 }
 
@@ -101,7 +101,7 @@ export async function serveStatic(req, res, url, { root, basePath }) {
     }));
     createReadStream(file).pipe(res);
   } catch {
-    json(res, 503, { error: "Build absent. Lancez npm run build." });
+    json(res, 503, { error: "Build missing. Run npm run build." });
   }
 }
 

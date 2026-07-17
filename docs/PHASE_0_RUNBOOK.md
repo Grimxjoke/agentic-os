@@ -1,17 +1,17 @@
-# Phase 0 — déploiement et rollback
+# Phase 0 — deployment and rollback
 
 ## Invariants
 
-- Orbit est la seule application routée publiquement.
-- Le processus Orbit écoute uniquement sur `127.0.0.1:4173`.
-- Caddy écoute uniquement sur `127.0.0.1:18080` et transmet `/orbit/*`, `/healthz` et `/readyz`.
-- Le tunnel ngrok permanent est géré par `ngrok-orbit.service`.
-- Les credentials restent exclusivement hors Git dans des fichiers root protégés.
-- Les messages utilisateur sont transmis aux CLIs par stdin et ne figurent pas dans les arguments journalisés par sudo.
-- Les unités, tunnels, superviseurs, conteneurs, images, réseaux et arbres applicatifs Hermes/Grafana sont supprimés après validation de la bascule.
-- Le port public `10275` est fermé.
+- Orbit is the only publicly routed application.
+- The Orbit process listens only on `127.0.0.1:4173`.
+- Caddy listens only on `127.0.0.1:18080` and transmits `/orbit/*`, `/healthz` and `/readyz`.
+- The permanent ngrok tunnel is managed by `ngrok-orbit.service`.
+- Credentials remain exclusively outside Git in protected root files.
+- User messages are passed to CLIs by stdin and are not included in arguments logged by sudo.
+- Hermes/Grafana units, tunnels, supervisors, containers, images, networks and application trees are deleted after validation of the switchover.
+- Public port `10275` is closed.
 
-## Vérification
+## Verification
 
 ```text
 npm test
@@ -21,18 +21,18 @@ systemctl is-active orbit-os ngrok-orbit
 ss -lntup
 ```
 
-Résultat réseau attendu :
+Expected network result:
 
 - `127.0.0.1:4173` : Orbit ;
 - `127.0.0.1:18080` : Caddy ;
-- aucun `0.0.0.0:4173` ;
-- aucun port `10275`.
-- aucun processus `cloudflared` ni tunnel ngrok autre que `ngrok-orbit.service`.
+- none `0.0.0.0:4173` ;
+- no `10275` port.
+- no `cloudflared` processes or ngrok tunnels other than `ngrok-orbit.service`.
 
 ## Rollback Caddy
 
-Avant la bascule, l’ancien fichier est copié hors du dépôt sous
-`/opt/agentic-os/docker/caddy/Caddyfile.pre-phase0`. Pour revenir en arrière :
+Before the switch, the old file is copied out of the repository under
+`/opt/agentic-os/docker/caddy/Caddyfile.pre-phase0`. To go back:
 
 ```text
 sudo cp /opt/agentic-os/docker/caddy/Caddyfile.pre-phase0 /opt/agentic-os/docker/caddy/Caddyfile
@@ -40,14 +40,14 @@ sudo docker exec agentic-os-caddy caddy validate --config /etc/caddy/Caddyfile
 sudo docker exec agentic-os-caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
-Le fichier est volontairement copié en place : le remplacer atomiquement casserait
-le lien avec le fichier déjà monté dans le conteneur. Si ce lien a déjà été cassé,
-recréez uniquement Caddy avec `sudo docker compose up -d --force-recreate caddy`
-depuis `/opt/agentic-os/docker/caddy`.
+The file is deliberately copied in place: replacing it atomically would break
+the link with the file already mounted in the container. If this link has already been broken,
+only recreate Caddy with `sudo docker compose up -d --force-recreate caddy`
+from `/opt/agentic-os/docker/caddy`.
 
 ## Rollback Orbit
 
-Le service déployé est sauvegardé sous `/etc/systemd/system/orbit-os.service.pre-phase0`.
+The deployed service is saved as `/etc/systemd/system/orbit-os.service.pre-phase0`.
 
 ```text
 sudo install -m 0644 /etc/systemd/system/orbit-os.service.pre-phase0 /etc/systemd/system/orbit-os.service
@@ -57,17 +57,17 @@ sudo systemctl restart orbit-os
 
 ## Rollback tunnel
 
-Si `ngrok-orbit.service` ne récupère pas le domaine permanent :
+If `ngrok-orbit.service` does not recover the permanent domain:
 
 ```text
 sudo systemctl disable --now ngrok-orbit
 sudo /snap/bin/ngrok http 18080 --log=stdout --log-format=logfmt
 ```
 
-Le dernier recours est volontairement interactif afin de ne pas créer un second tunnel orphelin en arrière-plan.
+The last resort is deliberately interactive so as not to create a second orphan tunnel in the background.
 
 ## Hermes
 
-La suppression Hermes/Grafana est volontaire et explicitement autorisée. Elle n’a
-pas de rollback applicatif : aucun historique ni donnée Hermes ne devait être
-conservé. Le rollback Phase 0 couvre uniquement Orbit, Caddy et le tunnel public.
+The Hermes/Grafana deletion is voluntary and explicitly authorized. She doesn't have
+no application rollback: no Hermes history or data should be
+preserved. The Phase 0 rollback only covers Orbit, Caddy and the public tunnel.

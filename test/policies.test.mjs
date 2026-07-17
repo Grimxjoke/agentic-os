@@ -12,6 +12,6 @@ test("policies allow bounded autonomy and deny sensitive controls", () => {
   assert.equal(policyFor("runs.cancel").allowed, true);
   assert.equal(policyFor("service.control").risk, "C");
   assert.throws(() => assertAllowed("service.control"), PolicyError);
-  assert.throws(() => assertAllowed("trading.live"), /non autorisée/);
+  assert.throws(() => assertAllowed("trading.live"), /not authorized/);
   assert.throws(() => assertAllowed("unknown.action"), PolicyError);
 });
