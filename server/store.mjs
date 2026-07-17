@@ -181,7 +181,7 @@ export class ControlPlaneStore {
           safeJson(definition.tools), safeJson(definition.skills), safeJson(definition.budget),
           safeJson(definition.policy), definition.color, actor, createdAt);
       this.db.prepare("UPDATE agents SET current_version_id = ? WHERE id = ?").run(versionId, agentId);
-      this.event({ type: "agent.created", message: `${definition.name}created`, payload: { agentId, version: 1 } });
+      this.event({ type: "agent.created", message: `${definition.name} created`, payload: { agentId, version: 1 } });
       this.audit({ actor, action: "agent.created", outcome: "success", targetType: "agent", targetId: agentId, metadata: { versionId, version: 1 } });
       return this.getAgent(agentId);
     });
@@ -204,7 +204,7 @@ export class ControlPlaneStore {
           safeJson(definition.policy), definition.color, actor, createdAt);
       this.db.prepare("UPDATE agents SET current_version_id = ?, updated_at = ? WHERE id = ?")
         .run(versionId, createdAt, agentId);
-      this.event({ type: "agent.versioned", message: `${definition.name}revised in v${version}`, payload: { agentId, versionId, version } });
+      this.event({ type: "agent.versioned", message: `${definition.name} revised in v${version}`, payload: { agentId, versionId, version } });
       this.audit({ actor, action: "agent.versioned", outcome: "success", targetType: "agent", targetId: agentId, metadata: { versionId, version } });
       return this.getAgent(agentId);
     });
@@ -259,7 +259,7 @@ export class ControlPlaneStore {
         .run(versionId, teamId, definition.name, definition.description, definition.maxConcurrency,
           safeJson(definition.nodes), safeJson(definition.budget), actor, createdAt);
       this.db.prepare("UPDATE teams SET current_version_id = ? WHERE id = ?").run(versionId, teamId);
-      this.event({ type: "team.created", message: `${definition.name}created`, payload: { teamId, versionId, version: 1 } });
+      this.event({ type: "team.created", message: `${definition.name} created`, payload: { teamId, versionId, version: 1 } });
       this.audit({ actor, action: "team.created", outcome: "success", targetType: "team", targetId: teamId, metadata: { versionId, version: 1 } });
       return this.getTeam(teamId);
     });
@@ -279,7 +279,7 @@ export class ControlPlaneStore {
         .run(versionId, teamId, version, definition.name, definition.description, definition.maxConcurrency,
           safeJson(definition.nodes), safeJson(definition.budget), actor, createdAt);
       this.db.prepare("UPDATE teams SET current_version_id = ?, updated_at = ? WHERE id = ?").run(versionId, createdAt, teamId);
-      this.event({ type: "team.versioned", message: `${definition.name}revised in v${version}`, payload: { teamId, versionId, version } });
+      this.event({ type: "team.versioned", message: `${definition.name} revised in v${version}`, payload: { teamId, versionId, version } });
       this.audit({ actor, action: "team.versioned", outcome: "success", targetType: "team", targetId: teamId, metadata: { versionId, version } });
       return this.getTeam(teamId);
     });
@@ -324,7 +324,7 @@ export class ControlPlaneStore {
           VALUES (?, ?, ?, ?, 1, 'queued', ?)`)
           .run(randomUUID(), id, node.key, node.agentVersionId, createdAt);
       }
-      this.runEvent({ runId: id, type: "run.queued", message: `${canonicalSnapshot.team.name} mis en file`, payload: { retryOfId, workers: canonicalSnapshot.nodes.length } });
+      this.runEvent({ runId: id, type: "run.queued", message: `${canonicalSnapshot.team.name} queued`, payload: { retryOfId, workers: canonicalSnapshot.nodes.length } });
       this.audit({ actor, action: retryOfId ? "run.retried" : "run.created", outcome: "success", targetType: "run", targetId: id, metadata: { teamVersionId: canonicalSnapshot.team.versionId, retryOfId } });
       return this.getRun(id);
     });
@@ -406,7 +406,7 @@ export class ControlPlaneStore {
     const changed = this.db.prepare(`UPDATE run_workers SET status = 'completed', output_json = ?,
       tokens_used = ?, cost_usd = ?, finished_at = ? WHERE id = ? AND status = 'running'`)
       .run(safeJson(output), tokensUsed, costUsd, finishedAt, id).changes;
-    if (changed) this.runEvent({ runId: worker.runId, workerId: id, type: "worker.completed", message: `${worker.nodeKey}finished`, payload: { tokensUsed, costUsd } });
+    if (changed) this.runEvent({ runId: worker.runId, workerId: id, type: "worker.completed", message: `${worker.nodeKey} finished`, payload: { tokensUsed, costUsd } });
     this.refreshRunMetrics(worker.runId);
     return changed > 0;
   }
@@ -493,7 +493,11 @@ export class ControlPlaneStore {
     const createdAt = this.clock();
     this.db.prepare(`INSERT INTO run_artifacts(id, run_id, worker_id, name, kind, uri, bytes, checksum, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, runId, workerId, String(name).slice(0, 200), String(kind).slice(0, 80), String(uri).slice(0, 1000), bytes, checksum, createdAt);
-    this.runEvent({ runId, workerId, type: "artifact.created", message: `${name}added`, payload: { artifactId: id, kind, uri } });
+    this.db.prepare(`INSERT INTO artifact_index
+      (id, source_type, source_id, run_id, name, kind, bytes, checksum, searchable_text, indexed_at)
+      VALUES (?, 'run', ?, ?, ?, ?, ?, ?, ?, ?)`).run(randomUUID(), id, runId, String(name).slice(0, 200),
+      String(kind).slice(0, 80), bytes, checksum, `${name} ${kind} ${uri}`.slice(0, 20_000), createdAt);
+    this.runEvent({ runId, workerId, type: "artifact.created", message: `${name} added`, payload: { artifactId: id, kind, uri } });
     return { id, runId, workerId, name, kind, uri, bytes, checksum, createdAt };
   }
 
@@ -548,7 +552,7 @@ export class ControlPlaneStore {
     return this.transaction(() => {
       this.db.prepare(`INSERT INTO jobs(id, kind, status, title, input_json, created_at, started_at)
         VALUES (?, ?, 'running', ?, ?, ?, ?)`).run(id, kind, title, safeJson(input), createdAt, createdAt);
-      this.event({ jobId: id, type: "job.started", level: "info", message: `${title}started` });
+      this.event({ jobId: id, type: "job.started", level: "info", message: `${title} started` });
       return { id, kind, status: "running", title, createdAt, startedAt: createdAt };
     });
   }
@@ -620,6 +624,200 @@ export class ControlPlaneStore {
     return Number(result.lastInsertRowid);
   }
 
+  createFileBackup({ id = randomUUID(), rootId, relativePath, backupPath, checksum, bytes, actor = "user" }) {
+    const createdAt = this.clock();
+    this.db.prepare(`INSERT INTO file_backups
+      (id, root_id, relative_path, backup_path, checksum, bytes, created_by, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, rootId, relativePath, backupPath, checksum, bytes, actor, createdAt);
+    return this.getFileBackup(id);
+  }
+
+  getFileBackup(id) {
+    return this.db.prepare(`SELECT id, root_id AS rootId, relative_path AS relativePath,
+      backup_path AS backupPath, checksum, bytes, created_by AS createdBy, created_at AS createdAt
+      FROM file_backups WHERE id = ?`).get(id) || null;
+  }
+
+  listFileBackups(rootId, relativePath) {
+    return this.db.prepare(`SELECT id, root_id AS rootId, relative_path AS relativePath,
+      checksum, bytes, created_by AS createdBy, created_at AS createdAt FROM file_backups
+      WHERE root_id = ? AND relative_path = ? ORDER BY created_at DESC LIMIT 50`).all(rootId, relativePath);
+  }
+
+  replaceFileArtifactIndex(entries) {
+    const indexedAt = this.clock();
+    return this.transaction(() => {
+      this.db.prepare("DELETE FROM artifact_index WHERE source_type = 'file'").run();
+      const insert = this.db.prepare(`INSERT INTO artifact_index
+        (id, source_type, source_id, root_id, relative_path, name, kind, mime_type, bytes, checksum, searchable_text, indexed_at)
+        VALUES (?, 'file', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      for (const entry of entries) {
+        const sourceId = `${entry.rootId}:${entry.path}`;
+        insert.run(randomUUID(), sourceId, entry.rootId, entry.path, entry.name, entry.kind || "file",
+          entry.mimeType || null, entry.bytes ?? null, entry.checksum || null,
+          String(entry.searchableText || `${entry.name} ${entry.path}`).slice(0, 20_000), indexedAt);
+      }
+      return entries.length;
+    });
+  }
+
+  syncRunArtifactIndex() {
+    const indexedAt = this.clock();
+    return this.transaction(() => {
+      this.db.prepare("DELETE FROM artifact_index WHERE source_type = 'run'").run();
+      const artifacts = this.db.prepare("SELECT id, run_id AS runId, name, kind, uri, bytes, checksum FROM run_artifacts").all();
+      const insert = this.db.prepare(`INSERT INTO artifact_index
+        (id, source_type, source_id, run_id, name, kind, bytes, checksum, searchable_text, indexed_at)
+        VALUES (?, 'run', ?, ?, ?, ?, ?, ?, ?, ?)`);
+      for (const artifact of artifacts) insert.run(randomUUID(), artifact.id, artifact.runId, artifact.name,
+        artifact.kind, artifact.bytes, artifact.checksum, `${artifact.name} ${artifact.kind} ${artifact.uri}`.slice(0, 20_000), indexedAt);
+      return artifacts.length;
+    });
+  }
+
+  listArtifacts({ query = "", kind = "", limit = 100 } = {}) {
+    const bounded = Math.max(1, Math.min(Number(limit) || 100, 250));
+    const filters = [];
+    const parameters = [];
+    if (query) { filters.push("(name LIKE ? ESCAPE '\\' OR searchable_text LIKE ? ESCAPE '\\')"); parameters.push(`%${String(query).replace(/[\\%_]/g, "\\$&")}%`, `%${String(query).replace(/[\\%_]/g, "\\$&")}%`); }
+    if (kind) { filters.push("kind = ?"); parameters.push(kind); }
+    const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+    return this.db.prepare(`SELECT id, source_type AS sourceType, source_id AS sourceId,
+      root_id AS rootId, relative_path AS path, run_id AS runId, name, kind,
+      mime_type AS mimeType, bytes, checksum, indexed_at AS indexedAt
+      FROM artifact_index ${where} ORDER BY indexed_at DESC, name LIMIT ?`).all(...parameters, bounded);
+  }
+
+  createMemory(input, actor = "user") {
+    const id = randomUUID();
+    const timestamp = this.clock();
+    this.db.prepare(`INSERT INTO memories
+      (id, title, content, kind, confidence, pinned, source_type, source_id, source_uri, created_by, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, input.title, input.content, input.kind,
+      input.confidence, input.pinned ? 1 : 0, input.sourceType, input.sourceId, input.sourceUri, actor, timestamp, timestamp);
+    this.event({ type: "memory.created", message: `${input.title} retained`, payload: { memoryId: id, sourceType: input.sourceType, sourceId: input.sourceId } });
+    this.audit({ actor, action: "memory.created", outcome: "success", targetType: "memory", targetId: id, metadata: { sourceType: input.sourceType, sourceId: input.sourceId } });
+    return this.getMemory(id);
+  }
+
+  getMemory(id) {
+    const row = this.db.prepare(`SELECT id, title, content, kind, confidence, pinned,
+      source_type AS sourceType, source_id AS sourceId, source_uri AS sourceUri,
+      created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt
+      FROM memories WHERE id = ? AND archived_at IS NULL`).get(id);
+    return row ? { ...row, pinned: Boolean(row.pinned) } : null;
+  }
+
+  listMemories({ query = "", limit = 100 } = {}) {
+    const bounded = Math.max(1, Math.min(Number(limit) || 100, 250));
+    const escaped = `%${String(query).replace(/[\\%_]/g, "\\$&")}%`;
+    return this.db.prepare(`SELECT id, title, content, kind, confidence, pinned,
+      source_type AS sourceType, source_id AS sourceId, source_uri AS sourceUri,
+      created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt
+      FROM memories WHERE archived_at IS NULL AND (? = '' OR title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')
+      ORDER BY pinned DESC, updated_at DESC LIMIT ?`).all(query, escaped, escaped, bounded)
+      .map((row) => ({ ...row, pinned: Boolean(row.pinned) }));
+  }
+
+  updateMemory(id, input, actor = "user") {
+    const timestamp = this.clock();
+    const changed = this.db.prepare(`UPDATE memories SET title = ?, content = ?, kind = ?, confidence = ?,
+      pinned = ?, source_type = ?, source_id = ?, source_uri = ?, updated_at = ?
+      WHERE id = ? AND archived_at IS NULL`).run(input.title, input.content, input.kind, input.confidence,
+      input.pinned ? 1 : 0, input.sourceType, input.sourceId, input.sourceUri, timestamp, id).changes;
+    if (!changed) return null;
+    this.audit({ actor, action: "memory.updated", outcome: "success", targetType: "memory", targetId: id });
+    return this.getMemory(id);
+  }
+
+  archiveMemory(id, actor = "user") {
+    const changed = this.db.prepare("UPDATE memories SET archived_at = ?, updated_at = ? WHERE id = ? AND archived_at IS NULL")
+      .run(this.clock(), this.clock(), id).changes;
+    if (changed) this.audit({ actor, action: "memory.archived", outcome: "success", targetType: "memory", targetId: id });
+    return changed > 0;
+  }
+
+  createHypothesis(input, actor = "user") {
+    const id = randomUUID();
+    const timestamp = this.clock();
+    this.db.prepare(`INSERT INTO hypotheses
+      (id, title, statement, rationale, status, tags_json, source_type, source_id, source_uri, created_by, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, input.title, input.statement, input.rationale,
+      input.status, safeJson(input.tags), input.sourceType, input.sourceId, input.sourceUri, actor, timestamp, timestamp);
+    this.event({ type: "hypothesis.created", message: `${input.title} registered`, payload: { hypothesisId: id, status: input.status } });
+    this.audit({ actor, action: "hypothesis.created", outcome: "success", targetType: "hypothesis", targetId: id, metadata: { sourceType: input.sourceType, sourceId: input.sourceId } });
+    return this.getHypothesis(id);
+  }
+
+  getHypothesis(id) {
+    const row = this.db.prepare(`SELECT id, title, statement, rationale, status, tags_json AS tagsJson,
+      source_type AS sourceType, source_id AS sourceId, source_uri AS sourceUri,
+      created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt
+      FROM hypotheses WHERE id = ? AND archived_at IS NULL`).get(id);
+    if (!row) return null;
+    const { tagsJson, ...hypothesis } = row;
+    return { ...hypothesis, tags: parseSafeJson(tagsJson, []) };
+  }
+
+  listHypotheses({ query = "", status = "", limit = 100 } = {}) {
+    const bounded = Math.max(1, Math.min(Number(limit) || 100, 250));
+    const escaped = `%${String(query).replace(/[\\%_]/g, "\\$&")}%`;
+    return this.db.prepare(`SELECT id FROM hypotheses WHERE archived_at IS NULL
+      AND (? = '' OR status = ?) AND (? = '' OR title LIKE ? ESCAPE '\\' OR statement LIKE ? ESCAPE '\\')
+      ORDER BY updated_at DESC LIMIT ?`).all(status, status, query, escaped, escaped, bounded).map(({ id }) => this.getHypothesis(id));
+  }
+
+  updateHypothesis(id, input, actor = "user") {
+    const changed = this.db.prepare(`UPDATE hypotheses SET title = ?, statement = ?, rationale = ?, status = ?,
+      tags_json = ?, source_type = ?, source_id = ?, source_uri = ?, updated_at = ?
+      WHERE id = ? AND archived_at IS NULL`).run(input.title, input.statement, input.rationale, input.status,
+      safeJson(input.tags), input.sourceType, input.sourceId, input.sourceUri, this.clock(), id).changes;
+    if (!changed) return null;
+    this.audit({ actor, action: "hypothesis.updated", outcome: "success", targetType: "hypothesis", targetId: id, metadata: { status: input.status } });
+    return this.getHypothesis(id);
+  }
+
+  archiveHypothesis(id, actor = "user") {
+    const changed = this.db.prepare("UPDATE hypotheses SET archived_at = ?, updated_at = ? WHERE id = ? AND archived_at IS NULL")
+      .run(this.clock(), this.clock(), id).changes;
+    if (changed) this.audit({ actor, action: "hypothesis.archived", outcome: "success", targetType: "hypothesis", targetId: id });
+    return changed > 0;
+  }
+
+  knowledgeGraph(query = "") {
+    const needle = String(query).trim().toLowerCase();
+    const nodes = [];
+    const edges = [];
+    const include = (label, detail = "") => !needle || `${label} ${detail}`.toLowerCase().includes(needle);
+    for (const agent of this.listAgents()) if (include(agent.name, agent.role)) nodes.push({ id: `agent:${agent.id}`, entityId: agent.id, type: "agent", label: agent.name, detail: agent.role, uri: `/agents` });
+    for (const team of this.listTeams()) {
+      if (include(team.name, team.description)) nodes.push({ id: `team:${team.id}`, entityId: team.id, type: "team", label: team.name, detail: `Version ${team.version}`, uri: "/agents" });
+      for (const member of team.nodes) {
+        const agent = this.getAgentVersion(member.agentVersionId);
+        if (agent) edges.push({ source: `team:${team.id}`, target: `agent:${agent.id}`, type: "contains" });
+      }
+    }
+    for (const run of this.listRuns(100)) {
+      if (include(run.objective, run.status)) nodes.push({ id: `run:${run.id}`, entityId: run.id, type: "run", label: run.objective.slice(0, 80), detail: run.status, uri: `/runs?run=${run.id}` });
+      edges.push({ source: `run:${run.id}`, target: `team:${run.teamId}`, type: "executed_by" });
+    }
+    for (const artifact of this.listArtifacts({ query, limit: 250 })) {
+      const nodeId = artifact.sourceType === "file" ? `file:${artifact.sourceId}` : `artifact:${artifact.sourceId}`;
+      nodes.push({ id: nodeId, entityId: artifact.sourceId, type: "artifact", label: artifact.name, detail: artifact.path || artifact.kind, uri: artifact.path ? `/files?path=${encodeURIComponent(artifact.path)}` : "/artifacts" });
+      if (artifact.runId) edges.push({ source: nodeId, target: `run:${artifact.runId}`, type: "produced_by" });
+    }
+    for (const hypothesis of this.listHypotheses({ query, limit: 250 })) {
+      nodes.push({ id: `hypothesis:${hypothesis.id}`, entityId: hypothesis.id, type: "hypothesis", label: hypothesis.title, detail: hypothesis.status, uri: "/knowledge" });
+      if (hypothesis.sourceId) edges.push({ source: `hypothesis:${hypothesis.id}`, target: `${hypothesis.sourceType}:${hypothesis.sourceId}`, type: "derived_from" });
+    }
+    for (const memory of this.listMemories({ query, limit: 250 })) {
+      nodes.push({ id: `memory:${memory.id}`, entityId: memory.id, type: "memory", label: memory.title, detail: memory.kind, uri: "/memory" });
+      if (memory.sourceId) edges.push({ source: `memory:${memory.id}`, target: `${memory.sourceType}:${memory.sourceId}`, type: "sourced_from" });
+    }
+    const nodeIds = new Set(nodes.map((node) => node.id));
+    return { generatedAt: this.clock(), nodes, edges: edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)) };
+  }
+
   counts() {
     const count = (table, where = "") => Number(this.db.prepare(`SELECT COUNT(*) AS count FROM ${table} ${where}`).get().count);
     const activeSessions = Number(this.db.prepare("SELECT COUNT(*) AS count FROM access_sessions WHERE revoked_at IS NULL AND expires_at > ?").get(this.clock()).count);
@@ -636,6 +834,9 @@ export class ControlPlaneStore {
       teams: count("teams", "WHERE archived_at IS NULL"),
       runs: count("runs"),
       runningRuns: count("runs", "WHERE status IN ('running', 'degraded')"),
+      memories: count("memories", "WHERE archived_at IS NULL"),
+      hypotheses: count("hypotheses", "WHERE archived_at IS NULL"),
+      artifacts: count("artifact_index"),
     };
   }
 

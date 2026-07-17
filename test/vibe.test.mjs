@@ -124,7 +124,7 @@ test("Orbit exposes only the explicit Vibe route contract", async () => {
 
     const denied = await fetch(`${origin}/api/vibe/settings/llm`);
     assert.equal(denied.status, 404);
-    assert.deepEqual(await denied.json(), { error: "Route Vibe inconnue", code: "not_found" });
+    assert.deepEqual(await denied.json(), { error: "Unknown Vibe route", code: "not_found" });
     assert.equal(calls, 1);
   });
 });

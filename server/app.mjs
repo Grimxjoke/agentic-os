@@ -4,11 +4,12 @@ import { join } from "node:path";
 import { createAuth } from "./auth.mjs";
 import { loadConfig } from "./config.mjs";
 import { openDatabase } from "./database.mjs";
+import { createFileService } from "./files.mjs";
 import { json, readJson, sameOrigin, securityHeaders, serveStatic, unauthorized } from "./http.mjs";
 import { createRunOrchestrator, createVibeWorkerExecutor } from "./orchestrator.mjs";
 import { createRuntimeBridge } from "./runtimes.mjs";
 import { assertAllowed } from "./policies.mjs";
-import { parseAgent, parseAgentDefinitionInput, parseChatInput, parseConversationInput, parseRunInput, parseTeamDefinitionInput, ValidationError } from "./schemas.mjs";
+import { parseAgent, parseAgentDefinitionInput, parseChatInput, parseConversationInput, parseFileWriteInput, parseHypothesisInput, parseMemoryInput, parseRunInput, parseTeamDefinitionInput, ValidationError } from "./schemas.mjs";
 import { redact } from "./security.mjs";
 import { ControlPlaneStore } from "./store.mjs";
 import { createSystemService } from "./system.mjs";
@@ -18,7 +19,7 @@ function errorResponse(res, error, fallbackStatus = 500) {
   const validation = error instanceof ValidationError;
   const status = validation ? 400 : fallbackStatus;
   const message = String(error?.message || error || "Internal error").slice(-1400);
-  return json(res, status, { error: message, code: validation ? error.code : status === 404 ? "not_found" : "request_failed" });
+  return json(res, status, { error: message, code: error?.code || (status === 404 ? "not_found" : "request_failed") });
 }
 
 function displayTitle(message) {
@@ -67,6 +68,14 @@ export async function createOrbitApplication(overrides = {}) {
   });
   const packageJson = JSON.parse(await readFile(join(config.root, "package.json"), "utf8"));
   const store = new ControlPlaneStore(db, config.clock);
+  const files = createFileService({ roots: config.fileRoots, dataDirectory, store });
+  const refreshArtifacts = async () => {
+    const entries = await files.walk("workspace");
+    store.replaceFileArtifactIndex(entries.filter((entry) => entry.text).map((entry) => ({ ...entry, kind: entry.path.startsWith("docs/") ? "document" : "file" })));
+    store.syncRunArtifactIndex();
+    return entries.length;
+  };
+  await refreshArtifacts();
   store.reconcileStaleJobs();
   const auth = createAuth({ accessToken: config.accessToken, store });
   const runtimes = config.runtimes || createRuntimeBridge({ workspace: config.workspace });
@@ -112,6 +121,104 @@ export async function createOrbitApplication(overrides = {}) {
     }
     if (req.method === "GET" && url.pathname === "/api/observatory") {
       return json(res, 200, { ok: true, observatory: store.observatory() });
+    }
+    if (req.method === "GET" && url.pathname === "/api/files/roots") {
+      return json(res, 200, { ok: true, roots: files.roots() });
+    }
+    if (req.method === "GET" && url.pathname === "/api/files") {
+      try {
+        const listing = await files.list(url.searchParams.get("root") || "workspace", url.searchParams.get("path") || "");
+        return json(res, 200, { ok: true, ...listing });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/files/content") {
+      try {
+        const file = await files.read(url.searchParams.get("root") || "workspace", url.searchParams.get("path") || "");
+        return json(res, 200, { ok: true, file });
+      } catch (error) { return errorResponse(res, error, error?.code === "binary_file" ? 415 : 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/files/search") {
+      try {
+        const results = await files.search(url.searchParams.get("q") || "", url.searchParams.get("root") || "workspace");
+        return json(res, 200, { ok: true, results });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "PUT" && url.pathname === "/api/files/content") {
+      try {
+        assertAllowed("files.write");
+        const input = parseFileWriteInput(await readJson(req));
+        const file = await files.write(input.rootId, input.path, input.content, input.expectedChecksum);
+        return json(res, 200, { ok: true, file });
+      } catch (error) { return errorResponse(res, error, error?.code === "edit_conflict" ? 409 : 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/files/backups") {
+      return json(res, 200, { ok: true, backups: store.listFileBackups(url.searchParams.get("root") || "workspace", url.searchParams.get("path") || "") });
+    }
+    const restoreMatch = /^\/api\/files\/backups\/([0-9a-f-]{36})\/restore$/i.exec(url.pathname);
+    if (req.method === "POST" && restoreMatch) {
+      try {
+        assertAllowed("files.restore");
+        return json(res, 200, { ok: true, file: await files.restore(restoreMatch[1]) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "POST" && url.pathname === "/api/artifacts/reindex") {
+      try {
+        assertAllowed("artifacts.index");
+        const scanned = await refreshArtifacts();
+        return json(res, 200, { ok: true, scanned, artifacts: store.listArtifacts() });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/artifacts") {
+      try {
+        return json(res, 200, { ok: true, artifacts: store.listArtifacts({ query: url.searchParams.get("q") || "", kind: url.searchParams.get("kind") || "" }) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/memories") {
+      return json(res, 200, { ok: true, memories: store.listMemories({ query: url.searchParams.get("q") || "" }) });
+    }
+    if (req.method === "POST" && url.pathname === "/api/memories") {
+      try {
+        assertAllowed("memory.write");
+        return json(res, 201, { ok: true, memory: store.createMemory(parseMemoryInput(await readJson(req))) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    const memoryMatch = /^\/api\/memories\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "PUT" && memoryMatch) {
+      try {
+        assertAllowed("memory.write");
+        const memory = store.updateMemory(memoryMatch[1], parseMemoryInput(await readJson(req)));
+        return memory ? json(res, 200, { ok: true, memory }) : json(res, 404, { error: "Memory not found", code: "not_found" });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "DELETE" && memoryMatch) {
+      assertAllowed("memory.write");
+      return store.archiveMemory(memoryMatch[1]) ? json(res, 200, { ok: true }) : json(res, 404, { error: "Memory not found", code: "not_found" });
+    }
+    if (req.method === "GET" && url.pathname === "/api/hypotheses") {
+      return json(res, 200, { ok: true, hypotheses: store.listHypotheses({ query: url.searchParams.get("q") || "", status: url.searchParams.get("status") || "" }) });
+    }
+    if (req.method === "POST" && url.pathname === "/api/hypotheses") {
+      try {
+        assertAllowed("hypotheses.write");
+        return json(res, 201, { ok: true, hypothesis: store.createHypothesis(parseHypothesisInput(await readJson(req))) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    const hypothesisMatch = /^\/api\/hypotheses\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "PUT" && hypothesisMatch) {
+      try {
+        assertAllowed("hypotheses.write");
+        const hypothesis = store.updateHypothesis(hypothesisMatch[1], parseHypothesisInput(await readJson(req)));
+        return hypothesis ? json(res, 200, { ok: true, hypothesis }) : json(res, 404, { error: "Hypothesis not found", code: "not_found" });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "DELETE" && hypothesisMatch) {
+      assertAllowed("hypotheses.write");
+      return store.archiveHypothesis(hypothesisMatch[1]) ? json(res, 200, { ok: true }) : json(res, 404, { error: "Hypothesis not found", code: "not_found" });
+    }
+    if (req.method === "GET" && url.pathname === "/api/knowledge") {
+      try {
+        return json(res, 200, { ok: true, graph: store.knowledgeGraph(url.searchParams.get("q") || "") });
+      } catch (error) { return errorResponse(res, error, 400); }
     }
     if (req.method === "GET" && url.pathname === "/api/agents") {
       return json(res, 200, { ok: true, agents: store.listAgents() });
@@ -273,7 +380,7 @@ export async function createOrbitApplication(overrides = {}) {
         activeAgents.delete(input.agent);
       }
     }
-    return json(res, 404, { error: "Route inconnue", code: "not_found" });
+    return json(res, 404, { error: "Unknown route", code: "not_found" });
   }
 
   const server = createServer(async (req, res) => {
@@ -317,7 +424,7 @@ export async function createOrbitApplication(overrides = {}) {
         routedUrl.pathname = routedPath;
         return await handleApi(req, res, routedUrl, authContext);
       }
-      if (vite) return vite.middlewares(req, res, () => json(res, 404, { error: "Introuvable" }));
+      if (vite) return vite.middlewares(req, res, () => json(res, 404, { error: "Not found" }));
       return await serveStatic(req, res, url, config);
     } catch (error) {
       const badRequest = error instanceof URIError;
@@ -336,6 +443,7 @@ export async function createOrbitApplication(overrides = {}) {
     config,
     db,
     store,
+    files,
     orchestrator,
     server,
     async close() {

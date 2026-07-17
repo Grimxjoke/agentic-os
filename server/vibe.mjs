@@ -213,7 +213,7 @@ export function createVibeApiHandler(client) {
       }
       if (req.method === "POST" && path === "/api/vibe/upload") {
         const contentType = String(req.headers["content-type"] || "");
-        if (!contentType.startsWith("multipart/form-data;")) throw new VibeError("Upload multipart requis", 400, "invalid_upload");
+        if (!contentType.startsWith("multipart/form-data;")) throw new VibeError("Multipart upload required", 400, "invalid_upload");
         const body = await readBuffer(req, UPLOAD_LIMIT);
         return json(res, 201, { ok: true, upload: await client.upload(contentType, body) });
       }
@@ -237,11 +237,11 @@ export function createVibeApiHandler(client) {
       if (session && req.method === "PATCH") {
         const body = await readVibeJson(req);
         const title = String(body.title || "").trim().slice(0, 160);
-        if (!title) throw new VibeError("Titre requis", 400, "invalid_title");
+        if (!title) throw new VibeError("Title required", 400, "invalid_title");
         return json(res, 200, { ok: true, result: await client.sessions.update(session[1], { title }) });
       }
       if (session && req.method === "DELETE") return json(res, 200, { ok: true, result: await client.sessions.remove(session[1]) });
-      return json(res, 404, { error: "Route Vibe inconnue", code: "not_found" });
+      return json(res, 404, { error: "Unknown Vibe route", code: "not_found" });
     } catch (error) {
       const status = error instanceof VibeError ? error.status : 502;
       const code = error instanceof VibeError ? error.code : "vibe_proxy_failed";

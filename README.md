@@ -8,7 +8,7 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
 [![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![SQLite WAL](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![Phase 3 validated](https://img.shields.io/badge/roadmap-Phase_3_validated-18c8c8)](#roadmap)
+[![Phase 4 implemented](https://img.shields.io/badge/roadmap-Phase_4_implemented-18c8c8)](#roadmap)
 
 [Vision](#vision) · [Features](#available-features) · [Architecture](#architecture) · [Startup](#local-boot) · [Roadmap](#roadmap) · [Documentation](#documentation)
 
@@ -56,6 +56,15 @@ The project follows three simple principles:
 - durable Vibe orchestration with cancellation, retry, and restart recovery;
 - resumable SSE timeline, provider-reported usage, and referenced artifacts;
 - Observatory and Activity powered by real persistent data.
+
+### Files, artifacts, memory, and knowledge
+
+- allowlisted filesystem browser with traversal and symlink protection;
+- atomic text editing, optimistic conflict detection, and restorable backups;
+- unified index for workspace files and durable run artifacts;
+- persistent memory with explicit confidence, kind, and provenance;
+- hypothesis register with evidence statuses and source links;
+- read-only knowledge graph derived from canonical agents, teams, runs, files, hypotheses, and memories.
 
 ### Interface
 
@@ -154,6 +163,10 @@ Phase 2 was validated on **July 17, 2026** with:
 Phase 3 adds a successful build and **37 Orbit tests** including DAG,
 concurrency, budgets, policies, cancellation, retry, recovery, SSE, and Vibe orchestration.
 
+Phase 4 raises the suite to **43 Orbit tests**, adding traversal, symlink, extension,
+size, binary, atomic write, conflict, backup restoration, index refresh, search,
+provenance, and broken-link coverage.
+
 ## Roadmap
 
 | Phase | Status | Result |
@@ -162,11 +175,13 @@ concurrency, budgets, policies, cancellation, retry, recovery, SSE, and Vibe orc
 | 1 · Control plane persistent | ✅ Validated | SQLite, migrations, jobs, audit and backups |
 | 2 · Real Vibe | ✅ Validated | private engine, OAuth, sessions, SSE and artifacts |
 | 3 · Agent Lab & Runs | ✅ Validated | versioned agents, DAG teams and observable runs |
-| 4 · Files, Memory, Knowledge | ⏳ Planned | bounded files, provenance and derived graph |
+| 4 · Files, Memory, Knowledge | ✅ Implemented | bounded files, restorable backups, provenance and derived graph |
 | 5 · Strategy Factory | ⏳ Planned | reproducible backtests and statistical validations |
 | 6 · Experiment Studio | ⏳ Planned | generations, candidates and champion/challenger |
-| 7 · Paper Trading | ⏳ Planned | sandbox broker, orders and reconciliation |
-| 8 · Hardening & Live Readiness | ⏳ Planned | recovery, retention, security and validation of the mandate |
+| 7 · Automations & Human Inbox | ⏳ Planned | durable workflows, schedules and bounded decisions |
+| 8 · Paper Trading | ⏳ Planned | sandbox broker, orders and reconciliation |
+| 9 · Limited Live Trading | ⏳ Gated | expiring mandates, reconciliation and kill switches |
+| 10 · Design consolidation | ⏳ Planned | responsive layout, real event motion and accessibility audit |
 
 The detailed roadmap and exit criteria can be found in the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
 
@@ -203,6 +218,9 @@ To report a vulnerability, avoid a public issue containing exploitable details o
 - [Runbook Phase 2](docs/PHASE_2_RUNBOOK.md)
 - [PRD Phase 3](docs/PHASE_3_PRD.md)
 - [Plan Phase 3](docs/PHASE_3_PLAN.md)
+- [Plan Phase 4](docs/PHASE_4_PLAN.md)
+- [Runbook Phase 4](docs/PHASE_4_RUNBOOK.md)
+- [Phase 4 human acceptance test](docs/PHASE_4_HUMAN_TEST.md)
 - [Runbook Phase 3](docs/PHASE_3_RUNBOOK.md)
 - [Phase 3 human acceptance test](docs/PHASE_3_HUMAN_TEST.md)
 - [Runbook Phase 0](docs/PHASE_0_RUNBOOK.md)

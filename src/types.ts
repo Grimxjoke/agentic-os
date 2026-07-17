@@ -138,6 +138,37 @@ export type WorkspaceFile = {
   updated: string;
 };
 
+export type FileRoot = { id: string; label: string; writable: boolean };
+export type FileEntry = { name: string; path: string; type: "directory" | "file"; text: boolean; bytes: number | null; updatedAt: string };
+export type WorkspaceDocument = {
+  rootId: string; path: string; name: string; content: string; bytes: number; checksum: string;
+  mimeType: string; updatedAt: string; writable: boolean;
+};
+export type FileBackup = { id: string; rootId: string; relativePath: string; checksum: string; bytes: number; createdBy: string; createdAt: string };
+
+export type ArtifactRecord = {
+  id: string; sourceType: "file" | "run"; sourceId: string; rootId: string | null; path: string | null;
+  runId: string | null; name: string; kind: string; mimeType: string | null; bytes: number | null;
+  checksum: string | null; indexedAt: string;
+};
+
+export type MemoryRecord = {
+  id: string; title: string; content: string; kind: "fact" | "preference" | "decision" | "learning";
+  confidence: number; pinned: boolean; sourceType: "file" | "run" | "agent" | "hypothesis" | "manual";
+  sourceId: string | null; sourceUri: string | null; createdBy: string; createdAt: string; updatedAt: string;
+};
+
+export type HypothesisRecord = {
+  id: string; title: string; statement: string; rationale: string;
+  status: "draft" | "testing" | "supported" | "rejected" | "inconclusive"; tags: string[];
+  sourceType: "file" | "run" | "agent" | "memory" | "manual"; sourceId: string | null;
+  sourceUri: string | null; createdBy: string; createdAt: string; updatedAt: string;
+};
+
+export type KnowledgeNode = { id: string; entityId: string; type: "agent" | "team" | "run" | "artifact" | "hypothesis" | "memory"; label: string; detail: string; uri: string };
+export type KnowledgeEdge = { source: string; target: string; type: string };
+export type KnowledgeGraph = { generatedAt: string; nodes: KnowledgeNode[]; edges: KnowledgeEdge[] };
+
 export type SystemServiceStatus = "operational" | "available" | "unavailable" | "deferred";
 
 export type SystemService = {

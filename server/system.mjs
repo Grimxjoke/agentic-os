@@ -71,7 +71,7 @@ export function createSystemService({ db, databasePath, dataDirectory, store, ve
 
   async function createBackup() {
     const result = await backupDatabase(db, dataDirectory);
-    store.event({ type: "database.backup", message: `Backup${result.filename}created`, payload: { filename: result.filename, bytes: result.bytes } });
+    store.event({ type: "database.backup", message: `Backup ${result.filename} created`, payload: { filename: result.filename, bytes: result.bytes } });
     store.audit({ actor: "user", action: "database.backup", outcome: "success", targetType: "backup", targetId: result.filename, metadata: { bytes: result.bytes } });
     return result;
   }

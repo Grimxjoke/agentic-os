@@ -168,3 +168,54 @@ export function parseRunInput(value) {
     objective: string(input.objective, "Objective", { max: 5_000 }),
   };
 }
+
+function optionalString(value, name, max = 500) {
+  if (value === undefined || value === null || value === "") return null;
+  return string(value, name, { max });
+}
+
+function provenance(input, sourceTypes) {
+  const sourceType = choice(input.sourceType || "manual", "Source type", sourceTypes);
+  const sourceId = optionalString(input.sourceId, "Source identifier", 500);
+  const sourceUri = optionalString(input.sourceUri, "Source URI", 1_000);
+  if (sourceType !== "manual" && !sourceId && !sourceUri) {
+    throw new ValidationError("A non-manual record requires a source identifier or URI", "missing_provenance");
+  }
+  return { sourceType, sourceId, sourceUri };
+}
+
+export function parseFileWriteInput(value) {
+  const input = object(value);
+  if (typeof input.content !== "string") throw new ValidationError("Invalid file content");
+  if (Buffer.byteLength(input.content, "utf8") > 524_288) throw new ValidationError("File exceeds the 512 KiB write limit", "file_too_large");
+  return {
+    rootId: string(input.rootId || "workspace", "Root", { max: 64 }),
+    path: string(input.path, "Path", { max: 1_000 }),
+    content: input.content,
+    expectedChecksum: optionalString(input.expectedChecksum, "Expected checksum", 128),
+  };
+}
+
+export function parseMemoryInput(value) {
+  const input = object(value);
+  return {
+    title: string(input.title, "Title", { max: 160 }),
+    content: string(input.content, "Content", { max: 20_000 }),
+    kind: choice(input.kind || "learning", "Memory kind", ["fact", "preference", "decision", "learning"]),
+    confidence: boundedNumber(input.confidence ?? 1, "Confidence", { min: 0, max: 1 }),
+    pinned: Boolean(input.pinned),
+    ...provenance(input, ["file", "run", "agent", "hypothesis", "manual"]),
+  };
+}
+
+export function parseHypothesisInput(value) {
+  const input = object(value);
+  return {
+    title: string(input.title, "Title", { max: 160 }),
+    statement: string(input.statement, "Statement", { max: 10_000 }),
+    rationale: input.rationale ? string(input.rationale, "Rationale", { max: 10_000 }) : "",
+    status: choice(input.status || "draft", "Hypothesis status", ["draft", "testing", "supported", "rejected", "inconclusive"]),
+    tags: stringList(input.tags || [], "Tags", { maxItems: 24, itemMax: 48 }),
+    ...provenance(input, ["file", "run", "agent", "memory", "manual"]),
+  };
+}
