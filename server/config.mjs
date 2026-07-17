@@ -17,6 +17,9 @@ export function loadConfig(overrides = {}) {
     basePath: "/orbit",
     ...overrides,
   };
+  config.fileRoots = config.fileRoots || [
+    { id: "workspace", label: "Orbit workspace", path: config.workspace, writable: true },
+  ];
   if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65_535) {
     throw new Error(`Invalid PORT: ${config.port}`);
   }

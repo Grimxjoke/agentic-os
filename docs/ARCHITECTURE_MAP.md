@@ -44,7 +44,7 @@ Hermes occupied several services, containers, tunnels and network routes. Declar
 | Skills | global page still local; real catalog of 87 skills visible in the Vibe cockpit | unify skills Vibe and Orbit with policies |
 | Cron | local visual editor, deterministic PI proposal by keywords | persistent workflows actually executed and resumed after restart |
 | Kanban | movable local maps | view derived from objectives, experiences, decisions and incidents |
-| Files | four fake files edited in the browser | bounded VPS explorer, versions, uploads and real artifacts |
+| Files | allowlisted VPS explorer, atomic text editing and restorable backups | uploads and dataset snapshots |
 | Knowledge | static graph | index of strategies, runs, hypotheses, agents, files and memories |
 | Memory | four local entries | Durable Vibe memory with provenance, correction and search |
 | Artifacts | static list | reports, code, metrics, logs and real exports |

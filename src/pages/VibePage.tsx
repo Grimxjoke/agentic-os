@@ -46,7 +46,7 @@ function eventLabel(type: string, data: Record<string, unknown>) {
   if (type === "tool_result") return `${String(data.tool || "Tool")} · ${String(data.status || "finished")}`;
   if (type === "attempt.started") return "Search started";
   if (type === "attempt.completed") return "Search completed";
-  if (type === "attempt.failed") return `Failure ·${String(data.error || "cause inconnue")}`;
+  if (type === "attempt.failed") return `Failure · ${String(data.error || "unknown cause")}`;
   if (type === "llm_usage") return "Updated model usage";
   if (type === "thinking_done") return "Reasoning stage completed";
   return type.replaceAll("_", " ").replaceAll(".", " · ");
@@ -255,7 +255,7 @@ export function VibePage() {
       title="Vibe Research Deck"
       description="Persistent sessions, powered search and real-time events — the engine remains private behind Orbit."
       actions={<>
-        <span className={`vibe-engine-pill ${overview?.engine || "loading"}`}><i />{overview?.engine === "online" ? (overview.ready ? "Engine ready" : "OAuth requis") : overview?.engine === "offline" ? "Hors ligne" : "Connexion…"}</span>
+        <span className={`vibe-engine-pill ${overview?.engine || "loading"}`}><i />{overview?.engine === "online" ? (overview.ready ? "Engine ready" : "OAuth required") : overview?.engine === "offline" ? "Offline" : "Connecting…"}</span>
         <button className="button secondary" onClick={() => void loadAll()} disabled={loading}><RefreshCw size={14} className={loading ? "spin" : ""} />Refresh</button>
       </>}
     />

@@ -1,144 +1,131 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Code2, Columns2, Eye, File, FileCode2, FileText, Folder, FolderOpen,
-  LockKeyhole, MoreHorizontal, PanelLeftClose, Plus, Save, Search, Sparkles, X,
-} from "lucide-react";
-import { workspaceFiles } from "../data/mockData";
-import { useLocalStorage } from "../hooks/useLocalStorage";
-import type { WorkspaceFile } from "../types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, File, FileText, FolderOpen, History, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { api, ApiError } from "../lib/api";
+import type { FileBackup, FileEntry, FileRoot, WorkspaceDocument } from "../types";
 
-type EditorMode = "code" | "visual" | "split";
+const formatBytes = (bytes: number | null) => bytes === null ? "—" : bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KiB`;
 
 export function FilesPage() {
-  const [files, setFiles] = useLocalStorage<WorkspaceFile[]>("pi-os-files", workspaceFiles);
-  const [activeId, setActiveId] = useState(files[0].id);
-  const [tabs, setTabs] = useState(files.slice(0, 3).map((file) => file.id));
-  const [mode, setMode] = useState<EditorMode>("visual");
-  const [savedPulse, setSavedPulse] = useState(false);
-  const active = files.find((file) => file.id === activeId) ?? files[0];
-  const openFile = (id: string) => { setActiveId(id); setTabs((current) => current.includes(id) ? current : [...current, id]); };
-  const closeTab = (id: string) => { const next = tabs.filter((tab) => tab !== id); setTabs(next); if (activeId === id && next.length) setActiveId(next[next.length - 1]); };
-  const updateContent = (content: string) => {
-    setFiles((current) => current.map((file) => file.id === active.id ? { ...file, content, updated: "edited just now" } : file));
-    setSavedPulse(true);
-    window.setTimeout(() => setSavedPulse(false), 1200);
-  };
+  const [params, setParams] = useSearchParams();
+  const [roots, setRoots] = useState<FileRoot[]>([]);
+  const [rootId, setRootId] = useState("workspace");
+  const [path, setPath] = useState("");
+  const [entries, setEntries] = useState<FileEntry[]>([]);
+  const [document, setDocument] = useState<WorkspaceDocument | null>(null);
+  const [draft, setDraft] = useState("");
+  const [backups, setBackups] = useState<FileBackup[]>([]);
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<FileEntry[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-  return (
-    <div className="ide-shell v03-ide">
-      <aside className="file-sidebar">
-        <header><span>EXPLORATEUR</span><div><button aria-label="New file"><Plus size={15} /></button><button aria-label="Explorer Options"><MoreHorizontal size={15} /></button></div></header>
-        <div className="workspace-root"><FolderOpen size={15} /><strong>AGENTIC OS</strong><em>LOCAL</em></div>
-        <div className="file-tree">
-          <div className="tree-folder"><span><FolderOpen size={14} />Strategy</span>{files.filter((file) => file.path.includes("Strategy")).map((file) => <FileRow file={file} active={file.id === activeId} onClick={() => openFile(file.id)} key={file.id} />)}</div>
-          <div className="tree-folder"><span><FolderOpen size={14} />Briefs</span>{files.filter((file) => file.path.includes("Briefs")).map((file) => <FileRow file={file} active={file.id === activeId} onClick={() => openFile(file.id)} key={file.id} />)}</div>
-          <div className="tree-folder"><span><FolderOpen size={14} />Artifacts</span>{files.filter((file) => file.path.includes("Artifacts")).map((file) => <FileRow file={file} active={file.id === activeId} onClick={() => openFile(file.id)} key={file.id} />)}</div>
-          <div className="tree-folder"><span><Folder size={14} />Agents</span>{files.filter((file) => file.path.includes("Agents")).map((file) => <FileRow file={file} active={file.id === activeId} onClick={() => openFile(file.id)} key={file.id} />)}</div>
-        </div>
-        <div className="file-sidebar-bottom"><button><Search size={14} />Global search</button><button><FileText size={14} />{files.length} indexed files</button></div>
-      </aside>
+  const loadDirectory = useCallback(async (nextPath = path) => {
+    setError("");
+    try {
+      const response = await api<{ entries: FileEntry[] }>(`/files?root=${encodeURIComponent(rootId)}&path=${encodeURIComponent(nextPath)}`);
+      setEntries(response.entries); setPath(nextPath); setDocument(null); setBackups([]); setSearchResults(null);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to open directory"); }
+  }, [path, rootId]);
 
-      <section className="editor-shell">
-        <div className="editor-tabs"><button className="panel-toggle" aria-label="Hide Explorer"><PanelLeftClose size={15} /></button>{tabs.map((id) => { const file = files.find((item) => item.id === id); if (!file) return null; return <button className={id === activeId ? "active" : ""} key={id} onClick={() => setActiveId(id)}>{file.type === "html" ? <FileCode2 size={14} /> : <FileText size={14} />}{file.name}<X size={13} onClick={(event) => { event.stopPropagation(); closeTab(id); }} /></button>; })}<span /></div>
-        <div className="editor-toolbar">
-          <div className="file-breadcrumb">Agentic OS <i>/</i> {active.path.split("/").filter(Boolean).slice(-2).join(" / ")}</div>
-          <div className="editor-actions">
-            {active.type === "html" && mode !== "code" && <span className="readonly-badge"><LockKeyhole size={12} />Visual read-only</span>}
-            <div className="view-toggle editor-mode-toggle">
-              <button className={mode === "code" ? "active" : ""} onClick={() => setMode("code")}><Code2 size={13} />Code</button>
-              <button className={mode === "visual" ? "active" : ""} onClick={() => setMode("visual")}><Eye size={13} />Visual</button>
-              <button className={mode === "split" ? "active" : ""} onClick={() => setMode("split")}><Columns2 size={13} />Split</button>
-            </div>
-            <button className="icon-button" aria-label="Save file"><Save size={15} /></button><button className="icon-button" aria-label="File Options"><MoreHorizontal size={15} /></button>
-          </div>
-        </div>
-
-        <div className={"editor-content mode-" + mode}>
-          {mode === "code" && <CodeEditor content={active.content} onChange={updateContent} />}
-          {mode === "visual" && <VisualDocument key={active.id + "-visual"} file={active} onChange={updateContent} />}
-          {mode === "split" && <><div className="split-pane"><CodeEditor content={active.content} onChange={updateContent} /></div><div className="split-pane visual-pane"><VisualDocument key={active.id + "-split"} file={active} onChange={updateContent} /></div></>}
-        </div>
-
-        <footer className="editor-status"><span className={savedPulse ? "saved" : ""}><i />{savedPulse ? "saved locally" : "local autosave"}</span><span>UTF-8</span><span>{active.type === "html" ? "HTML" : "Markdown"}</span><span>Ln {active.content.split("\n").length}</span><strong>{active.type === "html" && mode !== "code" ? <><LockKeyhole size={11} /> Protected preview</> : <><Sparkles size={11} /> Stable Visual Editor</>}</strong></footer>
-      </section>
-    </div>
-  );
-}
-
-function CodeEditor({ content, onChange }: { content: string; onChange: (value: string) => void }) {
-  return <div className="code-editor"><div className="line-numbers">{content.split("\n").map((_, index) => <span key={index}>{index + 1}</span>)}</div><textarea value={content} onChange={(event) => onChange(event.target.value)} spellCheck={false} /></div>;
-}
-
-function VisualDocument({ file, onChange }: { file: WorkspaceFile; onChange: (value: string) => void }) {
-  if (file.type === "html") {
-    return <div className="notion-canvas html-preview-canvas"><div className="visual-edit-hint readonly"><LockKeyhole size={13} />Read-only secure HTML preview · use Code to edit</div><div className="html-preview-frame"><iframe title={"Overview of" + file.name} srcDoc={file.content} sandbox="" /></div></div>;
-  }
-  return <MarkdownVisualEditor file={file} onChange={onChange} />;
-}
-
-function MarkdownVisualEditor({ file, onChange }: { file: WorkspaceFile; onChange: (value: string) => void }) {
-  const editorRef = useRef<HTMLElement>(null);
-  const [dirty, setDirty] = useState(false);
+  const openFile = useCallback(async (entryPath: string) => {
+    setError("");
+    try {
+      const response = await api<{ file: WorkspaceDocument }>(`/files/content?root=${encodeURIComponent(rootId)}&path=${encodeURIComponent(entryPath)}`);
+      setDocument(response.file); setDraft(response.file.content); setParams({ path: entryPath });
+      const history = await api<{ backups: FileBackup[] }>(`/files/backups?root=${encodeURIComponent(rootId)}&path=${encodeURIComponent(entryPath)}`);
+      setBackups(history.backups);
+    } catch (reason) {
+      const message = reason instanceof ApiError && reason.code === "binary_file" ? "Binary files are metadata-only and cannot be opened in the editor." : reason instanceof Error ? reason.message : "Unable to open file";
+      setError(message);
+    }
+  }, [rootId, setParams]);
 
   useEffect(() => {
-    if (editorRef.current) editorRef.current.innerHTML = renderMarkdown(file.content);
-    setDirty(false);
-  }, [file.id]);
+    api<{ roots: FileRoot[] }>("/files/roots").then((response) => setRoots(response.roots)).catch((reason) => setError(reason.message));
+    const requested = params.get("path");
+    if (requested) {
+      const directory = requested.split("/").slice(0, -1).join("/");
+      setPath(directory); loadDirectory(directory).then(() => openFile(requested));
+    } else loadDirectory("");
+    // Initial deep-link hydration only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const save = () => {
-    if (!editorRef.current || !dirty) return;
-    onChange(markdownFromEditor(editorRef.current));
-    setDirty(false);
+  const save = async () => {
+    if (!document) return;
+    setBusy(true); setError("");
+    try {
+      const response = await api<{ file: WorkspaceDocument & { backup?: FileBackup } }>("/files/content", {
+        method: "PUT", body: JSON.stringify({ rootId, path: document.path, content: draft, expectedChecksum: document.checksum }),
+      });
+      setDocument(response.file); setDraft(response.file.content);
+      const history = await api<{ backups: FileBackup[] }>(`/files/backups?root=${encodeURIComponent(rootId)}&path=${encodeURIComponent(document.path)}`);
+      setBackups(history.backups); await loadDirectory(path); await openFile(document.path);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to save file"); }
+    finally { setBusy(false); }
   };
 
-  return <div className="notion-canvas"><div className={"visual-edit-hint " + (dirty ? "dirty" : "")}><Sparkles size={13} />{dirty ? "Edits in progress · click outside the document to save" : "Direct Markdown Editing · Enter, Backspace and Delete work normally"}</div><article ref={editorRef} className="markdown-preview notion-editor stable-editor" contentEditable suppressContentEditableWarning onInput={() => setDirty(true)} onBlur={save} /></div>;
-}
-
-function FileRow({ file, active, onClick }: { file: WorkspaceFile; active: boolean; onClick: () => void }) {
-  return <button className={"tree-file " + (active ? "active" : "")} onClick={onClick}>{file.type === "html" ? <FileCode2 size={14} /> : <File size={14} />}<span>{file.name}</span>{file.type === "html" && <LockKeyhole size={10} />}</button>;
-}
-
-function renderMarkdown(source: string) {
-  const lines = source.split("\n");
-  const html: string[] = [];
-  let inList = false;
-  const closeList = () => { if (inList) { html.push("</ul>"); inList = false; } };
-  for (const line of lines) {
-    if (line.startsWith("- ")) {
-      if (!inList) { html.push("<ul>"); inList = true; }
-      html.push("<li>" + inlineMarkdown(line.slice(2)) + "</li>");
-      continue;
-    }
-    closeList();
-    if (line.startsWith("# ")) html.push("<h1>" + inlineMarkdown(line.slice(2)) + "</h1>");
-    else if (line.startsWith("## ")) html.push("<h2>" + inlineMarkdown(line.slice(3)) + "</h2>");
-    else if (line.startsWith("### ")) html.push("<h3>" + inlineMarkdown(line.slice(4)) + "</h3>");
-    else if (line.startsWith("> ")) html.push("<blockquote>" + inlineMarkdown(line.slice(2)) + "</blockquote>");
-    else if (!line.trim()) html.push("<p><br></p>");
-    else html.push("<p>" + inlineMarkdown(line) + "</p>");
-  }
-  closeList();
-  return html.join("");
-}
-
-function inlineMarkdown(value: string) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>");
-}
-
-function markdownFromEditor(root: HTMLElement) {
-  const lines: string[] = [];
-  const walk = (element: Element) => {
-    const tag = element.tagName.toLowerCase();
-    const text = (element as HTMLElement).innerText.replace(/\n+$/g, "");
-    if (tag === "h1") lines.push("# " + text);
-    else if (tag === "h2") lines.push("## " + text);
-    else if (tag === "h3") lines.push("### " + text);
-    else if (tag === "blockquote") lines.push("> " + text);
-    else if (tag === "li") lines.push("- " + text);
-    else if (tag === "ul" || tag === "ol") Array.from(element.children).forEach(walk);
-    else if (tag === "div" && element.children.length) Array.from(element.children).forEach(walk);
-    else lines.push(text);
+  const restore = async (backup: FileBackup) => {
+    if (!window.confirm(`Restore the backup from ${new Date(backup.createdAt).toLocaleString()}? The current version will also be backed up.`)) return;
+    setBusy(true);
+    try {
+      const response = await api<{ file: WorkspaceDocument }>(`/files/backups/${backup.id}/restore`, { method: "POST" });
+      setDocument(response.file); setDraft(response.file.content); await openFile(response.file.path);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to restore backup"); }
+    finally { setBusy(false); }
   };
-  Array.from(root.children).forEach(walk);
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+
+  const createFile = async () => {
+    const name = window.prompt("New text file name (for example: hypothesis.md)");
+    if (!name) return;
+    const nextPath = [path, name.trim()].filter(Boolean).join("/");
+    setBusy(true);
+    try {
+      const response = await api<{ file: WorkspaceDocument }>("/files/content", { method: "PUT", body: JSON.stringify({ rootId, path: nextPath, content: `# ${name.replace(/\.[^.]+$/, "")}\n` }) });
+      await loadDirectory(path); setDocument(response.file); setDraft(response.file.content); setParams({ path: nextPath });
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to create file"); }
+    finally { setBusy(false); }
+  };
+
+  const search = async () => {
+    if (query.trim().length < 2) { setSearchResults(null); return; }
+    setBusy(true);
+    try {
+      const response = await api<{ results: FileEntry[] }>(`/files/search?root=${encodeURIComponent(rootId)}&q=${encodeURIComponent(query)}`);
+      setSearchResults(response.results);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Search failed"); }
+    finally { setBusy(false); }
+  };
+
+  const visibleEntries = searchResults ?? entries;
+  const parent = useMemo(() => path.split("/").slice(0, -1).join("/"), [path]);
+
+  return <div className="ide-shell phase4-files">
+    <aside className="file-sidebar">
+      <header><span>ALLOWLISTED FILES</span><div><button onClick={createFile} aria-label="New file"><Plus size={15} /></button><button onClick={() => loadDirectory(path)} aria-label="Refresh"><RefreshCw size={14} /></button></div></header>
+      <div className="workspace-root"><ShieldCheck size={14} /><select value={rootId} onChange={(event) => { setRootId(event.target.value); setPath(""); }}>{roots.map((root) => <option key={root.id} value={root.id}>{root.label}</option>)}</select><em>BOUNDED</em></div>
+      <div className="file-search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && search()} placeholder="Search names and content" /></div>
+      <div className="file-tree real-tree">
+        {path && !searchResults && <button className="tree-file" onClick={() => loadDirectory(parent)}><ArrowLeft size={14} /><span>..</span></button>}
+        {visibleEntries.map((entry) => <button className={`tree-file ${document?.path === entry.path ? "active" : ""}`} key={entry.path} onClick={() => entry.type === "directory" ? loadDirectory(entry.path) : openFile(entry.path)}>
+          {entry.type === "directory" ? <FolderOpen size={14} /> : entry.text ? <FileText size={14} /> : <File size={14} />}<span>{entry.name}</span><small>{entry.type === "file" ? formatBytes(entry.bytes) : ""}</small>
+        </button>)}
+        {!visibleEntries.length && <p className="file-empty">{searchResults ? "No search results." : "This directory is empty."}</p>}
+      </div>
+      <div className="file-sidebar-bottom"><button onClick={search}><Search size={14} />Search workspace</button><span>{visibleEntries.length} entries shown</span></div>
+    </aside>
+    <section className="editor-shell">
+      <div className="editor-toolbar">
+        <div className="file-breadcrumb">{document?.path || path || "Workspace root"}</div>
+        <div className="editor-actions">{document && <><span className="readonly-badge"><ShieldCheck size={12} />Atomic save</span><button className="button primary" onClick={save} disabled={busy || draft === document.content}><Save size={14} />Save</button></>}</div>
+      </div>
+      {error && <div className="phase4-error">{error}</div>}
+      {document ? <div className="phase4-editor-layout">
+        <div className="code-editor"><div className="line-numbers">{draft.split("\n").map((_, index) => <span key={index}>{index + 1}</span>)}</div><textarea value={draft} onChange={(event) => setDraft(event.target.value)} spellCheck={false} /></div>
+        <aside className="backup-panel"><h3><History size={15} />Version backups</h3><p>Every overwrite creates a restorable copy.</p>{backups.map((backup) => <button key={backup.id} onClick={() => restore(backup)} disabled={busy}><span>{new Date(backup.createdAt).toLocaleString()}</span><small>{formatBytes(backup.bytes)}</small><RotateCcw size={13} /></button>)}{!backups.length && <small>No previous version yet.</small>}</aside>
+      </div> : <div className="phase4-placeholder"><FolderOpen size={34} /><h2>Bounded workspace</h2><p>Select a text file to inspect or edit it. Binary files remain visible as metadata only.</p></div>}
+      <footer className="editor-status"><span><i />{document && draft !== document.content ? "unsaved changes" : "synchronized"}</span><span>UTF-8</span><span>512 KiB write limit</span><strong><ShieldCheck size={11} />No symlinks · allowlisted root</strong></footer>
+    </section>
+  </div>;
 }

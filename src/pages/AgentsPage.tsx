@@ -87,7 +87,7 @@ export function AgentsPage() {
             {filtered.map((agent) => <button key={agent.id} className={agent.id === selected?.id ? "selected" : ""} onClick={() => { setSelectedId(agent.id); setEditing(false); }}><Avatar name={agent.name} color={agent.color} /><span><strong>{agent.name}</strong><small>{agent.role}</small></span><i className="agent-version-dot">v{agent.version}</i><ChevronRight size={15} /></button>)}
             {!loading && filtered.length === 0 && <div className="agent-directory-empty">{agents.length ? "No results" : "The registry is empty"}</div>}
           </div>
-          <button className="new-agent-row" onClick={() => { setSelectedId(""); setEditing(true); }}><Plus size={16} />Nouvel agent</button>
+          <button className="new-agent-row" onClick={() => { setSelectedId(""); setEditing(true); }}><Plus size={16} />New agent</button>
         </aside>
 
         {loading ? <section className="agent-empty glass-panel"><Bot size={24} /><span><strong>Loading the registry</strong><small>Reading SQLite definitions…</small></span></section>
