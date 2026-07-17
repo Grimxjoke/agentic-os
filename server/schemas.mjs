@@ -219,3 +219,69 @@ export function parseHypothesisInput(value) {
     ...provenance(input, ["file", "run", "agent", "memory", "manual"]),
   };
 }
+
+export function parseStrategyObjectiveInput(value) {
+  const input = object(value);
+  return {
+    objective: string(input.objective, "Objective", { min: 10, max: 5_000 }),
+    hypothesisId: optionalId(input.hypothesisId, "Hypothesis") || null,
+    name: input.name ? string(input.name, "Name", { max: 160 }) : null,
+  };
+}
+
+export function parseStrategyDefinitionInput(value) {
+  const input = object(value);
+  const config = object(input.config);
+  const template = choice(input.template, "Strategy template", ["momentum", "mean_reversion"]);
+  const parsedConfig = template === "momentum" ? {
+    fastWindow: boundedNumber(config.fastWindow, "Fast window", { min: 2, max: 500, integer: true }),
+    slowWindow: boundedNumber(config.slowWindow, "Slow window", { min: 3, max: 1_000, integer: true }),
+    allowShort: Boolean(config.allowShort),
+    signalLag: boundedNumber(config.signalLag, "Signal lag", { min: 1, max: 20, integer: true }),
+  } : {
+    window: boundedNumber(config.window, "Window", { min: 3, max: 1_000, integer: true }),
+    entryZ: boundedNumber(config.entryZ, "Entry z-score", { min: 0.1, max: 10 }),
+    exitZ: boundedNumber(config.exitZ, "Exit z-score", { min: 0, max: 10 }),
+    allowShort: Boolean(config.allowShort),
+    signalLag: boundedNumber(config.signalLag, "Signal lag", { min: 1, max: 20, integer: true }),
+  };
+  return {
+    name: string(input.name, "Name", { max: 160 }), objective: string(input.objective, "Objective", { min: 10, max: 5_000 }),
+    thesis: string(input.thesis, "Thesis", { min: 10, max: 10_000 }), template,
+    code: string(input.code, "Code", { min: 10, max: 20_000 }), config: parsedConfig,
+    hypothesisId: optionalId(input.hypothesisId, "Hypothesis") || null,
+  };
+}
+
+export function parseSyntheticDatasetInput(value) {
+  const input = object(value);
+  return {
+    seed: boundedNumber(input.seed ?? 42, "Seed", { min: 1, max: 2_147_483_647, integer: true }),
+    rows: boundedNumber(input.rows ?? 756, "Rows", { min: 100, max: 5_000, integer: true }),
+    symbol: string(input.symbol || "SYNTH", "Symbol", { max: 32 }).toUpperCase(),
+    frequency: choice(input.frequency || "1d", "Frequency", ["1d"]),
+    drift: boundedNumber(input.drift ?? 0.00025, "Drift", { min: -0.01, max: 0.01 }),
+    volatility: boundedNumber(input.volatility ?? 0.012, "Volatility", { min: 0.0001, max: 0.2 }),
+  };
+}
+
+export function parseBacktestInput(value) {
+  const input = object(value);
+  return {
+    strategyVersionId: identifier(input.strategyVersionId, "Strategy version"),
+    datasetSnapshotId: identifier(input.datasetSnapshotId, "Dataset snapshot"),
+    config: {
+      initialCapital: boundedNumber(input.initialCapital ?? 100_000, "Initial capital", { min: 100, max: 1_000_000_000 }),
+      costBps: boundedNumber(input.costBps ?? 2, "Transaction cost", { min: 0, max: 1_000 }),
+      slippageBps: boundedNumber(input.slippageBps ?? 1, "Slippage", { min: 0, max: 1_000 }),
+      validationSeed: boundedNumber(input.validationSeed ?? 991, "Validation seed", { min: 1, max: 2_147_483_647, integer: true }),
+      validationSamples: boundedNumber(input.validationSamples ?? 200, "Validation samples", { min: 50, max: 500, integer: true }),
+    },
+  };
+}
+
+export function parseBacktestSelectionInput(value) {
+  const input = object(value);
+  if (!Array.isArray(input.ids) || input.ids.length < 2 || input.ids.length > 12) throw new ValidationError("Select between 2 and 12 backtests");
+  return { ids: [...new Set(input.ids.map((id) => identifier(id, "Backtest")))] };
+}

@@ -109,7 +109,7 @@ Limites :
 - Counting of tokens per worker and at the swarm level.
 - Artifacts isolated per run and per agent.
 - 452 Alpha Zoo factors and validation benches.
-- Multi-market backtests, Monte Carlo, bootstrap and walk-forward.
+- Orbit now provides deterministic cost-aware backtests with checksummed snapshots, Monte Carlo, bootstrap and walk-forward validation; Vibe retains broader multi-market research capabilities.
 - Durable register of hypotheses linked to runs.
 - Shadow Account and analysis of trading logs.
 - 10 families of connectors: Alpaca, Binance, Dhan, Futu, IBKR, Longbridge, OKX, Robinhood, Shoonya and Tiger.
@@ -157,7 +157,7 @@ He does not yet know how to manage a sustainable experimental program from start
 ### 5.1 Resources
 
 - 2 vCPU, 7.8 GiB RAM, no swap.
-- Environ 50 Gio de disque libres.
+- Approximately 50 GiB of free disk space.
 - Node 22, Python 3.12, active Docker.
 
 Competition must therefore be limited. Four LLM workers do not mean four simultaneous heavy CPU backtests.

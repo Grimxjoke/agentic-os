@@ -165,9 +165,37 @@ export type HypothesisRecord = {
   sourceUri: string | null; createdBy: string; createdAt: string; updatedAt: string;
 };
 
-export type KnowledgeNode = { id: string; entityId: string; type: "agent" | "team" | "run" | "artifact" | "hypothesis" | "memory"; label: string; detail: string; uri: string };
+export type KnowledgeNode = { id: string; entityId: string; type: "agent" | "team" | "run" | "artifact" | "hypothesis" | "memory" | "strategy" | "backtest"; label: string; detail: string; uri: string };
 export type KnowledgeEdge = { source: string; target: string; type: string };
 export type KnowledgeGraph = { generatedAt: string; nodes: KnowledgeNode[]; edges: KnowledgeEdge[] };
+
+export type StrategyDefinition = {
+  id: string; versionId: string; hypothesisId: string | null; version: number; name: string; objective: string;
+  thesis: string; template: "momentum" | "mean_reversion"; code: string; config: Record<string, number | boolean>;
+  createdBy: string; createdAt: string; updatedAt: string; versionCreatedAt: string;
+};
+
+export type DatasetSnapshot = {
+  id: string; name: string; source: "synthetic" | "fixture" | "upload"; symbol: string; frequency: string;
+  startAt: string; endAt: string; rows: number; checksum: string; createdAt: string;
+};
+
+export type BacktestMetrics = {
+  totalReturn: number; annualizedReturn: number; annualizedVolatility: number; sharpe: number; sortino: number;
+  maxDrawdown: number; winRate: number; profitFactor: number | null; tradeCount: number; exposure: number; endingEquity: number;
+};
+export type BacktestValidation = { id: string; kind: "static" | "bootstrap" | "monte_carlo" | "walk_forward"; status: "passed" | "warning" | "failed"; summary: string; metrics: Record<string, unknown>; warnings: string[]; createdAt: string };
+export type BacktestRecord = {
+  id: string; strategyId: string; strategyVersionId: string; hypothesisId: string | null; datasetSnapshotId: string;
+  status: "queued" | "running" | "completed" | "failed"; config: { initialCapital: number; costBps: number; slippageBps: number; validationSeed: number; validationSamples: number };
+  strategySnapshot: StrategyDefinition; dataSnapshot: DatasetSnapshot; metrics: BacktestMetrics | null; warnings: string[];
+  equity?: number[]; returns?: number[]; trades?: Array<{ entryIndex: number; exitIndex: number; side: string; entryPrice: number; exitPrice: number; pnl: number }>;
+  validations?: BacktestValidation[]; artifactUri: string | null; artifactChecksum: string | null;
+  artifact?: { status: "available" | "missing" | "corrupted"; detail?: string; bytes?: number; checksum?: string };
+  error: string | null; createdAt: string; startedAt: string | null; finishedAt: string | null;
+};
+
+export type AlphaFactor = { id: string; family: string; name: string; description: string; status: "available" | "research" | "planned" };
 
 export type SystemServiceStatus = "operational" | "available" | "unavailable" | "deferred";
 
@@ -219,6 +247,11 @@ export type SystemOverview = {
     teams: number;
     runs: number;
     runningRuns: number;
+    memories?: number;
+    hypotheses?: number;
+    artifacts?: number;
+    strategies?: number;
+    backtests?: number;
   };
   services: SystemService[];
   activity: ActivityEvent[];

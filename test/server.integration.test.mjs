@@ -232,7 +232,7 @@ test("system overview and backups expose measured, redacted data", async () => {
   assert.equal(overview.status, 200);
   const body = await overview.json();
   assert.equal(body.ok, true);
-  assert.equal(body.database.schemaVersion, 4);
+  assert.equal(body.database.schemaVersion, 5);
   assert.ok(body.services.some((service) => service.id === "orbit" && service.status === "operational"));
   assert.doesNotMatch(JSON.stringify(body), new RegExp(token));
   assert.doesNotMatch(JSON.stringify(body), /ORBIT_ACCESS_TOKEN|orbit-test-data/);
@@ -272,6 +272,56 @@ test("Phase 4 APIs enforce file boundaries and persist sourced knowledge", async
   assert.equal(graphResponse.status, 200);
   const graph = (await graphResponse.json()).graph;
   assert.ok(graph.edges.some((edge) => edge.source === `memory:${memory.id}` && edge.target === `hypothesis:${hypothesis.id}`));
+});
+
+test("Phase 5 APIs generate reproducible strategies, validations, comparisons and correlations", async () => {
+  const headers = await authenticatedHeaders();
+  const createStrategy = async (objective) => {
+    const response = await fetch(`${origin}/orbit/api/strategies/generate`, {
+      method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ objective }),
+    });
+    assert.equal(response.status, 201);
+    return (await response.json()).strategy;
+  };
+  const firstStrategy = await createStrategy("Capture medium-term momentum using completed daily bars after explicit costs.");
+  const secondStrategy = await createStrategy("Test mean reversion after extreme rolling z-score deviations using completed bars.");
+  const datasetResponse = await fetch(`${origin}/orbit/api/datasets/synthetic`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ seed: 515, rows: 400, symbol: "FIXTURE" }),
+  });
+  assert.equal(datasetResponse.status, 201);
+  const dataset = (await datasetResponse.json()).dataset;
+  const execute = async (strategyVersionId) => {
+    const response = await fetch(`${origin}/orbit/api/backtests`, {
+      method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ strategyVersionId, datasetSnapshotId: dataset.id, initialCapital: 100000, costBps: 2, slippageBps: 1, validationSamples: 100 }),
+    });
+    assert.equal(response.status, 201);
+    return (await response.json()).backtest;
+  };
+  const first = await execute(firstStrategy.versionId);
+  const second = await execute(secondStrategy.versionId);
+  assert.equal(first.status, "completed");
+  assert.equal(first.dataSnapshot.checksum, dataset.checksum);
+  assert.equal(first.validations.length, 4);
+
+  const detailResponse = await fetch(`${origin}/orbit/api/backtests/${first.id}`, { headers });
+  assert.equal(detailResponse.status, 200);
+  assert.equal((await detailResponse.json()).backtest.artifact.status, "available");
+
+  const compareResponse = await fetch(`${origin}/orbit/api/backtests/compare`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ ids: [first.id, second.id] }),
+  });
+  assert.equal(compareResponse.status, 200);
+  assert.equal((await compareResponse.json()).backtests.length, 2);
+
+  const correlationResponse = await fetch(`${origin}/orbit/api/backtests/correlation`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ ids: [first.id, second.id] }),
+  });
+  assert.equal(correlationResponse.status, 200);
+  assert.equal((await correlationResponse.json()).correlation.matrix.length, 2);
+
+  const zoo = await fetch(`${origin}/orbit/api/alpha-zoo`, { headers });
+  assert.equal(zoo.status, 200);
+  assert.ok((await zoo.json()).factors.some((factor) => factor.status === "available"));
 });
 
 test("agent registry creates and versions definitions through the protected API", async () => {

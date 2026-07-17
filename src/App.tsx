@@ -3,8 +3,12 @@ import { AppLayout } from "./components/AppLayout";
 import { ActivityPage } from "./pages/ActivityPage";
 import { AgentsPage } from "./pages/AgentsPage";
 import { ArtifactsPage } from "./pages/ArtifactsPage";
+import { AlphaZooPage } from "./pages/AlphaZooPage";
+import { BacktestsPage } from "./pages/BacktestsPage";
 import { ChatPage } from "./pages/ChatPage";
 import { ControlCenterPage } from "./pages/ControlCenterPage";
+import { ComparePage } from "./pages/ComparePage";
+import { CorrelationPage } from "./pages/CorrelationPage";
 import { CronPage } from "./pages/CronPage";
 import { FilesPage } from "./pages/FilesPage";
 import { InboxPage } from "./pages/InboxPage";
@@ -14,6 +18,7 @@ import { MemoryPage } from "./pages/MemoryPage";
 import { ObservatoryPage } from "./pages/ObservatoryPage";
 import { RunsPage } from "./pages/RunsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StrategyFactoryPage } from "./pages/StrategyFactoryPage";
 import { SkillsPage } from "./pages/SkillsPage";
 import { SwitchboardPage } from "./pages/SwitchboardPage";
 import { TradingPage } from "./pages/TradingPage";
@@ -32,6 +37,11 @@ export function App() {
         <Route path="inbox" element={<InboxPage />} />
         <Route path="agents" element={<AgentsPage />} />
         <Route path="runs" element={<RunsPage />} />
+        <Route path="strategies" element={<StrategyFactoryPage />} />
+        <Route path="backtests" element={<BacktestsPage />} />
+        <Route path="compare" element={<ComparePage />} />
+        <Route path="correlation" element={<CorrelationPage />} />
+        <Route path="alpha-zoo" element={<AlphaZooPage />} />
         <Route path="skills" element={<SkillsPage />} />
         <Route path="cron" element={<CronPage />} />
         <Route path="kanban" element={<KanbanPage />} />

@@ -13,6 +13,9 @@ const policies = Object.freeze({
   "artifacts.index": { risk: "A", allowed: true, confirmation: false },
   "memory.write": { risk: "B", allowed: true, confirmation: false },
   "hypotheses.write": { risk: "B", allowed: true, confirmation: false },
+  "strategies.write": { risk: "B", allowed: true, confirmation: false },
+  "datasets.generate": { risk: "B", allowed: true, confirmation: false },
+  "backtests.run": { risk: "B", allowed: true, confirmation: false },
   "service.control": { risk: "C", allowed: false, confirmation: true },
   "trading.live": { risk: "D", allowed: false, confirmation: true },
 });
