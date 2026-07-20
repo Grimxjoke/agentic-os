@@ -153,15 +153,15 @@ npm run dev
 
 The interface is served as `/orbit/`. Local data is created by default in `.orbit-data/`, a directory ignored by Git.
 
-For a loopback-only Orbit deployment protected at the ngrok edge by the managed
-Google OAuth policy, set `ORBIT_AUTH_MODE=ngrok_google`. This mode must never be
-used when Orbit is reachable directly from a non-loopback interface: ngrok then
-becomes the required authenticated public border.
+For direct Google Identity Services authentication, set `ORBIT_AUTH_MODE=google`,
+`ORBIT_GOOGLE_CLIENT_ID` to a Web client ID, and `ORBIT_GOOGLE_ALLOWED_EMAIL` to
+the single permitted account. Orbit verifies Google's signed ID token server-side
+and then creates its normal revocable session. ngrok remains transport-only. See
+the [Google access runbook](docs/GOOGLE_ACCESS_RUNBOOK.md).
 
-The production Orbit endpoint is restricted by ngrok-managed Google OAuth to
-`coinccrypto@gmail.com`. Open the public URL and select that Google account; no
-Orbit token is required after Google accepts the session. See the [Google access
-runbook](docs/GOOGLE_ACCESS_RUNBOOK.md) for recovery and operator steps.
+The legacy `ngrok_google` mode remains available for deployments where ngrok's
+managed OAuth works reliably. It must only be used with a loopback-bound Orbit
+service because the ngrok edge becomes the authentication border.
 
 > [!CAUTION]
 > Never publish an Orbit token, OAuth credential, Vibe key or file from `/etc/orbit-os`, `/etc/vibe-trading` or private data directories.

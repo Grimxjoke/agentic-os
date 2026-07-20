@@ -2,38 +2,37 @@
 
 ## Outcome
 
-The public Orbit endpoint is protected by ngrok's managed Google OAuth provider.
-Only `coinccrypto@gmail.com` is allowed. Once Google accepts the session, Orbit does
-not prompt for an Orbit access token.
+Orbit owns the Google login flow. ngrok only transports HTTPS traffic to the
+loopback-bound service. Orbit validates the signed Google ID token for the configured
+Web client ID, requires a verified email matching `coinccrypto@gmail.com`, and creates
+a revocable `HttpOnly` Orbit session.
 
-This setup deliberately uses ngrok's managed OAuth application. No Google Cloud
-project, OAuth client ID, or client secret is required for the single-user setup.
+This replaces ngrok-managed OAuth after repeated `ERR_NGROK_3303` failures in ngrok's
+hosted callback. It requires a Google Identity Services Web client ID but no client
+secret.
 
-## Operator access
+## One-time Google configuration
 
-1. Open `https://trailside-capacity-worst.ngrok-free.dev/`.
-2. Select `coinccrypto@gmail.com` in Google's account chooser.
-3. Orbit opens at the original requested page.
+Create an OAuth 2.0 client of type **Web application** in Google Cloud Console.
+Configure:
 
-ngrok controls the Google session. To deliberately start again, open:
+- Authorized JavaScript origin:
+  `https://trailside-capacity-worst.ngrok-free.dev`
+- No client secret is copied into Orbit.
 
-```text
-https://trailside-capacity-worst.ngrok-free.dev/ngrok/logout?auth_id=orbit-google
-```
-
-Then reopen Orbit and choose the permitted Google account.
+Install only the resulting client ID in the root-owned Orbit environment as
+`ORBIT_GOOGLE_CLIENT_ID`. Set `ORBIT_GOOGLE_ALLOWED_EMAIL=coinccrypto@gmail.com` and
+`ORBIT_AUTH_MODE=google`, then restart Orbit.
 
 ## Active controls
 
-- ngrok policy: `/root/snap/ngrok/common/orbit-google-oauth.yml` (`0600`, root-owned).
-- ngrok systemd drop-in: `/etc/systemd/system/ngrok-orbit.service.d/google-oauth.conf`.
-- Orbit systemd drop-in: `/etc/systemd/system/orbit-os.service.d/ngrok-google-auth.conf`.
-- Orbit mode: `ORBIT_AUTH_MODE=ngrok_google`.
-- Orbit and Caddy must remain loopback-only. Do not expose port `4173` or `18080` publicly.
-
-The policy first authenticates through Google and then denies every email except
-`coinccrypto@gmail.com`. Its Google session has a seven-day idle timeout and a
-thirty-day maximum lifetime.
+- Orbit stays bound to `127.0.0.1:4173`.
+- ngrok forwards to the loopback Caddy listener without an OAuth traffic policy.
+- The browser receives a Google credential only over HTTPS.
+- `google-auth-library` verifies signature, issuer, expiry, and audience.
+- Orbit separately verifies `email_verified` and the exact allowlisted email.
+- The resulting Orbit session token is random, hashed at rest, revocable, `HttpOnly`,
+  `SameSite=Strict`, and `Secure` through the public HTTPS endpoint.
 
 ## Verification
 
@@ -44,23 +43,13 @@ curl --fail --silent http://127.0.0.1:4173/orbit/readyz
 curl --head https://trailside-capacity-worst.ngrok-free.dev/orbit/
 ```
 
-The public request must return a `302` redirect to `idp.ngrok.com` before Google
-authentication. After successful Google authentication, it must reach Orbit without
-an Orbit token prompt.
+The public request redirects to `/orbit/login`, where the Google button is rendered.
+After selecting `coinccrypto@gmail.com`, Orbit opens the originally requested page.
+Another Google account must receive HTTP 403 from the login endpoint.
 
 ## Recovery
 
-If Google OAuth itself is unavailable, retain the source files and temporarily remove
-the two Google-authentication systemd drop-ins, then reload systemd and restart both
-services. This restores the former Orbit token login:
-
-```bash
-sudo rm /etc/systemd/system/ngrok-orbit.service.d/google-oauth.conf
-sudo rm /etc/systemd/system/orbit-os.service.d/ngrok-google-auth.conf
-sudo systemctl daemon-reload
-sudo systemctl restart ngrok-orbit orbit-os
-```
-
-Only perform this rollback from an authenticated SSH session. Restore Google OAuth by
-reinstalling the preserved drop-ins and restarting the services. Never change
-`ORBIT_AUTH_MODE=ngrok_google` while Orbit listens on a non-loopback address.
+If Google Identity Services is unavailable, temporarily restore `ORBIT_AUTH_MODE=token`
+and restart Orbit. Keep the ngrok tunnel transport-only. Never expose the Orbit or
+Caddy listener on a non-loopback interface, and never place an access token or Google
+credential in a URL, log, or repository file.

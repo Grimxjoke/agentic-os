@@ -8,7 +8,8 @@ import { loadConfig } from "./config.mjs";
 import { openDatabase } from "./database.mjs";
 import { createFileService } from "./files.mjs";
 import { createExperimentService } from "./experiments.mjs";
-import { json, readJson, sameOrigin, securityHeaders, serveStatic, unauthorized } from "./http.mjs";
+import { createGoogleIdentity } from "./google-auth.mjs";
+import { googleLogin, json, readJson, sameOrigin, securityHeaders, serveStatic, unauthorized } from "./http.mjs";
 import { createRunOrchestrator, createVibeWorkerExecutor } from "./orchestrator.mjs";
 import { createRuntimeBridge } from "./runtimes.mjs";
 import { assertAllowed } from "./policies.mjs";
@@ -82,6 +83,9 @@ export async function createOrbitApplication(overrides = {}) {
   store.reconcileStaleJobs();
   store.reconcileStaleBacktests();
   const auth = createAuth({ accessToken: config.accessToken, store });
+  const googleIdentity = config.authMode === "google"
+    ? createGoogleIdentity({ clientId: config.googleClientId, allowedEmail: config.googleAllowedEmail, client: overrides.googleOAuthClient })
+    : null;
   const runtimes = config.runtimes || createRuntimeBridge({ workspace: config.workspace });
   const vibe = config.vibeClient || createVibeClient({ baseUrl: config.vibeBaseUrl, apiKey: config.vibeApiKey });
   const runExecutor = overrides.runExecutor || createVibeWorkerExecutor(vibe);
@@ -496,6 +500,29 @@ export async function createOrbitApplication(overrides = {}) {
         }
       }
 
+      if (config.authMode === "google" && req.method === "GET" && url.pathname === `${config.basePath}/login`) {
+        const existing = auth.authenticate(req);
+        const next = url.searchParams.get("next") || `${config.basePath}/`;
+        if (existing) {
+          res.writeHead(302, securityHeaders({ Location: next.startsWith(`${config.basePath}/`) ? next : `${config.basePath}/`, "Cache-Control": "no-store" }));
+          return res.end();
+        }
+        return googleLogin(res, { clientId: config.googleClientId, next });
+      }
+      if (config.authMode === "google" && req.method === "POST" && url.pathname === `${config.basePath}/auth/google`) {
+        if (!sameOrigin(req)) return json(res, 403, { error: "Origin refused", code: "origin_denied" });
+        try {
+          const { credential } = await readJson(req, 12 * 1024);
+          const identity = await googleIdentity.verify(credential);
+          const established = auth.establish(req, { label: `Google · ${identity.email}` });
+          store.audit({ actor: identity.email, action: "session.google_login", outcome: "success", targetType: "session", targetId: established.session.id, metadata: { googleSubject: identity.subject } });
+          return json(res, 200, { ok: true }, { "Set-Cookie": established.cookies });
+        } catch (error) {
+          store.audit({ actor: "anonymous", action: "session.google_login", outcome: "failure", targetType: "session", targetId: null, metadata: { reason: error?.code || "invalid_google_credential" } });
+          return json(res, error?.code === "google_account_denied" ? 403 : 401, { error: "Google authentication failed", code: error?.code || "google_auth_failed" });
+        }
+      }
+
       const edgeAuthenticated = config.authMode === "ngrok_google";
       const queryToken = url.searchParams.get("access") || "";
       if (!edgeAuthenticated && queryToken && auth.accessMatches(queryToken)) {
@@ -506,7 +533,14 @@ export async function createOrbitApplication(overrides = {}) {
       }
 
       const authContext = edgeAuthenticated ? { session: null, legacy: false, edgeAuthenticated: true } : auth.authenticate(req);
-      if (!authContext) return unauthorized(res, url.pathname);
+      if (!authContext) {
+        if (config.authMode === "google") {
+          const next = url.pathname.startsWith(`${config.basePath}/`) ? `${url.pathname}${url.search}` : `${config.basePath}/`;
+          res.writeHead(302, securityHeaders({ Location: `${config.basePath}/login?next=${encodeURIComponent(next)}`, "Cache-Control": "no-store" }));
+          return res.end();
+        }
+        return unauthorized(res, url.pathname);
+      }
       if (!edgeAuthenticated && authContext.legacy && req.method === "GET") {
         const established = auth.establish(req);
         res.writeHead(302, securityHeaders({ Location: `${url.pathname}${url.search}`, "Cache-Control": "no-store", "Set-Cookie": established.cookies }));

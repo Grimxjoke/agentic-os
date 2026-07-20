@@ -46,6 +46,25 @@ export function unauthorized(res, pathname) {
   res.end(body);
 }
 
+function htmlEscape(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+  })[character]);
+}
+
+export function googleLogin(res, { clientId, next = "/orbit/" }) {
+  const safeNext = String(next).startsWith("/orbit/") ? String(next) : "/orbit/";
+  const serializedNext = JSON.stringify(safeNext).replace(/</g, "\\u003c");
+  const body = `<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width"><title>Connexion · Orbit OS</title><style>body{font:16px system-ui;background:#0d1117;color:#e6edf3;display:grid;place-items:center;min-height:100vh;margin:0}main{width:min(430px,calc(100% - 64px));padding:36px;border:1px solid #30363d;border-radius:16px;background:#161b22;text-align:center}p{color:#9da7b3;line-height:1.5}.button{display:flex;justify-content:center;margin-top:28px}.error{color:#ff9b9b;min-height:24px;margin-top:18px}</style><script src="https://accounts.google.com/gsi/client" async></script></head><body><main><h1>Orbit OS</h1><p>Connectez-vous avec le compte Google autorisé pour ouvrir votre espace privé.</p><div id="g_id_onload" data-client_id="${htmlEscape(clientId)}" data-callback="orbitGoogleLogin" data-auto_prompt="false"></div><div class="button"><div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="filled_blue" data-text="signin_with" data-size="large"></div></div><p id="error" class="error" role="alert"></p></main><script>const orbitNext=${serializedNext};async function orbitGoogleLogin(response){const error=document.getElementById("error");error.textContent="Connexion en cours…";try{const result=await fetch("/orbit/auth/google",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({credential:response.credential})});if(!result.ok)throw new Error("Compte non autorisé ou connexion expirée.");location.assign(orbitNext)}catch(reason){error.textContent=reason.message||"Connexion impossible."}}</script></body></html>`;
+  res.writeHead(200, securityHeaders({
+    "Cache-Control": "no-store",
+    "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Length": Buffer.byteLength(body),
+  }));
+  res.end(body);
+}
+
 export function sameOrigin(req) {
   const origin = req.headers.origin;
   if (!origin) return true;

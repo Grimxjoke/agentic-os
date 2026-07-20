@@ -46,12 +46,14 @@ Phase 4 and Phase 5 pull requests are not merged into `main` yet.
 
 Phase 6 was subsequently authorized, implemented, and deployed from the stacked
 branch. It adds schema version 6 and application version `0.11.0`; human acceptance
-and merge remain pending. The local suite now contains 57 passing Orbit tests.
+and merge remain pending. The local suite now contains 61 passing Orbit tests.
 
-Public access is protected by ngrok-managed Google OAuth, restricted to
-`coinccrypto@gmail.com`. Orbit runs in `ngrok_google` authentication mode and remains
-bound to loopback only. The edge policy and recovery procedure are documented in
-`docs/GOOGLE_ACCESS_RUNBOOK.md`.
+The ngrok-managed Google callback repeatedly failed with `ERR_NGROK_3303`, so a
+direct Google Identity Services login is implemented and tested in Orbit. It is
+restricted to `coinccrypto@gmail.com`, keeps Orbit loopback-only, and needs only the
+Web client ID to be installed before production activation. The tunnel temporarily
+uses the token fallback until that external value is supplied. The activation and
+recovery procedure are documented in `docs/GOOGLE_ACCESS_RUNBOOK.md`.
 
 ## Git and pull request topology
 
