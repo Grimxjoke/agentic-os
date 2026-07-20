@@ -44,9 +44,14 @@ requests and still need human acceptance and final merge.
 The production deployment currently includes all Phase 5 code even though the
 Phase 4 and Phase 5 pull requests are not merged into `main` yet.
 
-Phase 6 was subsequently authorized and implemented on a local stacked branch. It
-adds schema version 6 and application version `0.11.0`; it has not been claimed as
-deployed by this handoff. The local suite now contains 56 passing Orbit tests.
+Phase 6 was subsequently authorized, implemented, and deployed from the stacked
+branch. It adds schema version 6 and application version `0.11.0`; human acceptance
+and merge remain pending. The local suite now contains 57 passing Orbit tests.
+
+Public access is protected by ngrok-managed Google OAuth, restricted to
+`coinccrypto@gmail.com`. Orbit runs in `ngrok_google` authentication mode and remains
+bound to loopback only. The edge policy and recovery procedure are documented in
+`docs/GOOGLE_ACCESS_RUNBOOK.md`.
 
 ## Git and pull request topology
 

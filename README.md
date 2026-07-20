@@ -158,6 +158,11 @@ Google OAuth policy, set `ORBIT_AUTH_MODE=ngrok_google`. This mode must never be
 used when Orbit is reachable directly from a non-loopback interface: ngrok then
 becomes the required authenticated public border.
 
+The production Orbit endpoint is restricted by ngrok-managed Google OAuth to
+`coinccrypto@gmail.com`. Open the public URL and select that Google account; no
+Orbit token is required after Google accepts the session. See the [Google access
+runbook](docs/GOOGLE_ACCESS_RUNBOOK.md) for recovery and operator steps.
+
 > [!CAUTION]
 > Never publish an Orbit token, OAuth credential, Vibe key or file from `/etc/orbit-os`, `/etc/vibe-trading` or private data directories.
 
@@ -244,6 +249,7 @@ To report a vulnerability, avoid a public issue containing exploitable details o
 ## Documentation
 
 - [Continuation handoff](docs/CONTINUATION_HANDOFF.md)
+- [Google access runbook](docs/GOOGLE_ACCESS_RUNBOOK.md)
 - [Product PRD](docs/PRD.md)
 - [Architecture map](docs/ARCHITECTURE_MAP.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
