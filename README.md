@@ -153,6 +153,11 @@ npm run dev
 
 The interface is served as `/orbit/`. Local data is created by default in `.orbit-data/`, a directory ignored by Git.
 
+For a loopback-only Orbit deployment protected at the ngrok edge by the managed
+Google OAuth policy, set `ORBIT_AUTH_MODE=ngrok_google`. This mode must never be
+used when Orbit is reachable directly from a non-loopback interface: ngrok then
+becomes the required authenticated public border.
+
 > [!CAUTION]
 > Never publish an Orbit token, OAuth credential, Vibe key or file from `/etc/orbit-os`, `/etc/vibe-trading` or private data directories.
 

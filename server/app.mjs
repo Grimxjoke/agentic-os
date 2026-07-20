@@ -496,17 +496,18 @@ export async function createOrbitApplication(overrides = {}) {
         }
       }
 
+      const edgeAuthenticated = config.authMode === "ngrok_google";
       const queryToken = url.searchParams.get("access") || "";
-      if (queryToken && auth.accessMatches(queryToken)) {
+      if (!edgeAuthenticated && queryToken && auth.accessMatches(queryToken)) {
         const established = auth.establish(req);
         url.searchParams.delete("access");
         res.writeHead(302, securityHeaders({ Location: `${url.pathname}${url.search}`, "Cache-Control": "no-store", "Set-Cookie": established.cookies }));
         return res.end();
       }
 
-      const authContext = auth.authenticate(req);
+      const authContext = edgeAuthenticated ? { session: null, legacy: false, edgeAuthenticated: true } : auth.authenticate(req);
       if (!authContext) return unauthorized(res, url.pathname);
-      if (authContext.legacy && req.method === "GET") {
+      if (!edgeAuthenticated && authContext.legacy && req.method === "GET") {
         const established = auth.establish(req);
         res.writeHead(302, securityHeaders({ Location: `${url.pathname}${url.search}`, "Cache-Control": "no-store", "Set-Cookie": established.cookies }));
         return res.end();
