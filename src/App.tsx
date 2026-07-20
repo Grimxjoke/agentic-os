@@ -9,6 +9,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { ControlCenterPage } from "./pages/ControlCenterPage";
 import { ComparePage } from "./pages/ComparePage";
 import { CorrelationPage } from "./pages/CorrelationPage";
+import { ExperimentsPage } from "./pages/ExperimentsPage";
 import { CronPage } from "./pages/CronPage";
 import { FilesPage } from "./pages/FilesPage";
 import { InboxPage } from "./pages/InboxPage";
@@ -39,6 +40,7 @@ export function App() {
         <Route path="runs" element={<RunsPage />} />
         <Route path="strategies" element={<StrategyFactoryPage />} />
         <Route path="backtests" element={<BacktestsPage />} />
+        <Route path="experiments" element={<ExperimentsPage />} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="correlation" element={<CorrelationPage />} />
         <Route path="alpha-zoo" element={<AlphaZooPage />} />

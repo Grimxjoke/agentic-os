@@ -208,6 +208,8 @@ Tests :
 
 ### Phase 6 — Experiment Studio
 
+Status as of July 20, 2026: implemented on `agent/phase-6-experiment-studio`; local build and deterministic suite pass. Human acceptance, deployment, and merge remain pending.
+
 Livrables :
 
 - Experiment/Generation/Candidate/Evaluation models;

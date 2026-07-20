@@ -232,7 +232,7 @@ test("system overview and backups expose measured, redacted data", async () => {
   assert.equal(overview.status, 200);
   const body = await overview.json();
   assert.equal(body.ok, true);
-  assert.equal(body.database.schemaVersion, 5);
+  assert.equal(body.database.schemaVersion, 6);
   assert.ok(body.services.some((service) => service.id === "orbit" && service.status === "operational"));
   assert.doesNotMatch(JSON.stringify(body), new RegExp(token));
   assert.doesNotMatch(JSON.stringify(body), /ORBIT_ACCESS_TOKEN|orbit-test-data/);
@@ -322,6 +322,49 @@ test("Phase 5 APIs generate reproducible strategies, validations, comparisons an
   const zoo = await fetch(`${origin}/orbit/api/alpha-zoo`, { headers });
   assert.equal(zoo.status, 200);
   assert.ok((await zoo.json()).factors.some((factor) => factor.status === "available"));
+});
+
+test("Phase 6 API runs a bounded research experiment without trading promotion", async () => {
+  const headers = await authenticatedHeaders();
+  const strategyResponse = await fetch(`${origin}/orbit/api/strategies/generate`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ objective: "Search for a robust momentum challenger using completed bars after costs." }),
+  });
+  assert.equal(strategyResponse.status, 201);
+  const strategy = (await strategyResponse.json()).strategy;
+  const datasetResponse = await fetch(`${origin}/orbit/api/datasets/synthetic`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ seed: 616, rows: 180, symbol: "P6FIXTURE" }),
+  });
+  assert.equal(datasetResponse.status, 201);
+  const dataset = (await datasetResponse.json()).dataset;
+  const createResponse = await fetch(`${origin}/orbit/api/experiments`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "API bounded experiment", objective: "Evaluate one research challenger and never promote it to paper or live trading.",
+      baseStrategyVersionId: strategy.versionId, datasetSnapshotId: dataset.id,
+      budget: { maxGenerations: 1, candidatesPerGeneration: 1, maxBacktests: 1 },
+      score: { metric: "sharpe", minTrades: 0, maxDrawdown: 1, drawdownPenalty: 0.25 },
+      backtestConfig: { validationSamples: 50 } }),
+  });
+  assert.equal(createResponse.status, 201);
+  const experiment = (await createResponse.json()).experiment;
+  const startResponse = await fetch(`${origin}/orbit/api/experiments/${experiment.id}/start`, { method: "POST", headers });
+  assert.equal(startResponse.status, 202);
+  let detail;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const response = await fetch(`${origin}/orbit/api/experiments/${experiment.id}`, { headers });
+    assert.equal(response.status, 200);
+    detail = (await response.json()).experiment;
+    if (["completed", "failed"].includes(detail.status)) break;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.equal(detail.status, "completed");
+  assert.equal(detail.generations.length, 1);
+  assert.equal(detail.candidates.length, 1);
+  assert.equal(detail.backtestsUsed, 1);
+  const completedEvent = detail.events.find((event) => event.type === "experiment.completed");
+  assert.equal(completedEvent.payload.paperPromoted, false);
+  assert.equal(completedEvent.payload.livePromoted, false);
 });
 
 test("agent registry creates and versions definitions through the protected API", async () => {

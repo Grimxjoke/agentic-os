@@ -834,6 +834,17 @@ export class ControlPlaneStore {
       edges.push({ source: `backtest:${backtest.id}`, target: `strategy:${backtest.strategyId}`, type: "executes" });
       if (backtest.hypothesisId) edges.push({ source: `backtest:${backtest.id}`, target: `hypothesis:${backtest.hypothesisId}`, type: "evaluates" });
     }
+    const experimentRows = this.db.prepare("SELECT id, name, objective, status, champion_candidate_id AS championCandidateId FROM experiments ORDER BY created_at DESC LIMIT 100").all();
+    for (const experiment of experimentRows) {
+      if (include(experiment.name, `${experiment.objective} ${experiment.status}`)) nodes.push({ id: `experiment:${experiment.id}`, entityId: experiment.id, type: "experiment", label: experiment.name, detail: experiment.status, uri: `/experiments` });
+      if (experiment.championCandidateId) edges.push({ source: `experiment:${experiment.id}`, target: `candidate:${experiment.championCandidateId}`, type: "selects" });
+    }
+    const candidateRows = this.db.prepare("SELECT id, experiment_id AS experimentId, strategy_id AS strategyId, name, status FROM experiment_candidates ORDER BY created_at DESC LIMIT 250").all();
+    for (const candidate of candidateRows) {
+      if (include(candidate.name, candidate.status)) nodes.push({ id: `candidate:${candidate.id}`, entityId: candidate.id, type: "candidate", label: candidate.name, detail: candidate.status, uri: `/experiments` });
+      edges.push({ source: `candidate:${candidate.id}`, target: `experiment:${candidate.experimentId}`, type: "belongs_to" });
+      if (candidate.strategyId) edges.push({ source: `candidate:${candidate.id}`, target: `strategy:${candidate.strategyId}`, type: "implements" });
+    }
     for (const artifact of this.listArtifacts({ query, limit: 250 })) {
       const nodeId = artifact.sourceType === "file" ? `file:${artifact.sourceId}` : `artifact:${artifact.sourceId}`;
       nodes.push({ id: nodeId, entityId: artifact.sourceId, type: "artifact", label: artifact.name, detail: artifact.path || artifact.kind, uri: artifact.path ? `/files?path=${encodeURIComponent(artifact.path)}` : "/artifacts" });
@@ -1031,6 +1042,7 @@ export class ControlPlaneStore {
       artifacts: count("artifact_index"),
       strategies: count("strategies", "WHERE archived_at IS NULL"),
       backtests: count("backtests"),
+      experiments: count("experiments"),
     };
   }
 

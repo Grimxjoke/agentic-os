@@ -8,7 +8,7 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
 [![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![SQLite WAL](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![Phase 5 implemented](https://img.shields.io/badge/roadmap-Phase_5_implemented-18c8c8)](#roadmap)
+[![Phase 6 implemented](https://img.shields.io/badge/roadmap-Phase_6_implemented-18c8c8)](#roadmap)
 
 [Vision](#vision) · [Features](#available-features) · [Architecture](#architecture) · [Startup](#local-boot) · [Roadmap](#roadmap) · [Handoff](docs/CONTINUATION_HANDOFF.md) · [Documentation](#documentation)
 
@@ -74,6 +74,15 @@ The project follows three simple principles:
 - net equity, trades, reproducibility reports, and explicit overfitting warnings;
 - Monte Carlo, bootstrap, static integrity, and walk-forward validation;
 - compatible-run comparison, return correlation, and an honest Alpha Zoo catalog.
+
+### Experiment Studio
+
+- durable experiments, generations, candidates, evaluations, and transition events;
+- deterministic variants seeded by the prior generation champion;
+- global generation, candidate, and backtest budgets with a separate single-slot CPU queue;
+- configurable scoring and fail-closed research constraints;
+- pause, resume, cancellation, restart recovery, and idempotent transitions;
+- research-only champion/challenger semantics with no paper or live promotion route.
 
 ### Interface
 
@@ -180,6 +189,11 @@ Phase 5 raises the suite to **49 Orbit tests**, adding deterministic offline dat
 lookahead and corruption rejection, known metrics, immutable research snapshots,
 artifact integrity, compatibility checks, statistical validation, and end-to-end APIs.
 
+Phase 6 raises the suite to **56 Orbit tests**, adding bounded deterministic generations,
+global backtest budgets, incomplete and NaN score rejection, crash recovery,
+idempotence, protected Experiment Studio APIs, and explicit proof that no candidate
+is promoted to paper or live trading.
+
 ## Roadmap
 
 | Phase | Status | Result |
@@ -190,7 +204,7 @@ artifact integrity, compatibility checks, statistical validation, and end-to-end
 | 3 · Agent Lab & Runs | ✅ Validated | versioned agents, DAG teams and observable runs |
 | 4 · Files, Memory, Knowledge | ✅ Implemented | bounded files, restorable backups, provenance and derived graph |
 | 5 · Strategy Factory | ✅ Implemented | reproducible backtests and statistical validations |
-| 6 · Experiment Studio | ⏳ Planned | generations, candidates and champion/challenger |
+| 6 · Experiment Studio | ✅ Implemented | durable bounded generations, evaluation and research champions |
 | 7 · Automations & Human Inbox | ⏳ Planned | durable workflows, schedules and bounded decisions |
 | 8 · Paper Trading | ⏳ Planned | sandbox broker, orders and reconciliation |
 | 9 · Limited Live Trading | ⏳ Gated | expiring mandates, reconciliation and kill switches |
@@ -238,6 +252,9 @@ To report a vulnerability, avoid a public issue containing exploitable details o
 - [Plan Phase 5](docs/PHASE_5_PLAN.md)
 - [Runbook Phase 5](docs/PHASE_5_RUNBOOK.md)
 - [Phase 5 human acceptance test](docs/PHASE_5_HUMAN_TEST.md)
+- [Plan Phase 6](docs/PHASE_6_PLAN.md)
+- [Runbook Phase 6](docs/PHASE_6_RUNBOOK.md)
+- [Phase 6 human acceptance test](docs/PHASE_6_HUMAN_TEST.md)
 - [Runbook Phase 3](docs/PHASE_3_RUNBOOK.md)
 - [Phase 3 human acceptance test](docs/PHASE_3_HUMAN_TEST.md)
 - [Runbook Phase 0](docs/PHASE_0_RUNBOOK.md)

@@ -16,6 +16,10 @@ const policies = Object.freeze({
   "strategies.write": { risk: "B", allowed: true, confirmation: false },
   "datasets.generate": { risk: "B", allowed: true, confirmation: false },
   "backtests.run": { risk: "B", allowed: true, confirmation: false },
+  "experiments.write": { risk: "B", allowed: true, confirmation: false },
+  "experiments.run": { risk: "B", allowed: true, confirmation: false },
+  "experiments.pause": { risk: "B", allowed: true, confirmation: false },
+  "experiments.cancel": { risk: "B", allowed: true, confirmation: false },
   "service.control": { risk: "C", allowed: false, confirmation: true },
   "trading.live": { risk: "D", allowed: false, confirmation: true },
 });

@@ -1,6 +1,6 @@
 # Orbit Continuation Handoff
 
-Last verified: **July 17, 2026 at 14:48 UTC**
+Last locally verified: **July 20, 2026**
 
 This document is the canonical continuation note for a new Codex session or a
 new operator machine. It is intentionally self-contained and contains no
@@ -11,7 +11,7 @@ secrets.
 - Canonical repository: <https://github.com/Grimxjoke/Orbit-Trading-Agent-OS>
 - VPS checkout: `/home/codex/agentic-os`
 - Default branch: `main`
-- Current development branch: `agent/phase-5-strategy-backtests`
+- Current development branch: `agent/phase-6-experiment-studio`
 - Repository content, documentation, commit messages, branch names, and pull
   requests must be written in English. Conversation with the owner may be in
   French.
@@ -38,11 +38,15 @@ requests and still need human acceptance and final merge.
 | 3 | Merged and validated | Versioned agents and teams, DAG runs, policies, retry, cancellation, and observability |
 | 4 | Implemented and deployed; draft PR | Bounded files, artifact index, memory, hypotheses, provenance, and knowledge graph |
 | 5 | Implemented and deployed; draft PR | Immutable strategies, deterministic datasets, reproducible backtests, validations, comparison, correlation, and Alpha Zoo |
-| 6 | Not started | Experiment Studio, generations, candidates, evaluation, and champion/challenger |
+| 6 | Implemented locally; validation/deployment pending | Experiment Studio, bounded generations, candidates, evaluation, recovery, and research champion/challenger |
 | 7–10 | Planned only | Automations, paper trading, gated live trading, and design consolidation |
 
 The production deployment currently includes all Phase 5 code even though the
 Phase 4 and Phase 5 pull requests are not merged into `main` yet.
+
+Phase 6 was subsequently authorized and implemented on a local stacked branch. It
+adds schema version 6 and application version `0.11.0`; it has not been claimed as
+deployed by this handoff. The local suite now contains 56 passing Orbit tests.
 
 ## Git and pull request topology
 
@@ -51,7 +55,8 @@ The last verified remote topology is:
 ```text
 main (Phases 0–3)
 └── agent/phase-4-knowledge-files
-    └── agent/phase-5-strategy-backtests  ← deployed production checkout
+    └── agent/phase-5-strategy-backtests  ← last documented production checkout
+        └── agent/phase-6-experiment-studio  ← local Phase 6 work
 ```
 
 Relevant pull requests:

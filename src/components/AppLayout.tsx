@@ -22,6 +22,7 @@ const navigation = [
     { to: "/runs", label: "Teams & Runs", icon: Workflow },
     { to: "/strategies", label: "Strategy Factory", icon: FlaskConical },
     { to: "/backtests", label: "Backtests", icon: Activity },
+    { to: "/experiments", label: "Experiment Studio", icon: Sparkles },
     { to: "/compare", label: "Compare", icon: GitBranch },
     { to: "/correlation", label: "Correlation", icon: Network },
     { to: "/alpha-zoo", label: "Alpha Zoo", icon: Library },

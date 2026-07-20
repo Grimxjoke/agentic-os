@@ -285,3 +285,39 @@ export function parseBacktestSelectionInput(value) {
   if (!Array.isArray(input.ids) || input.ids.length < 2 || input.ids.length > 12) throw new ValidationError("Select between 2 and 12 backtests");
   return { ids: [...new Set(input.ids.map((id) => identifier(id, "Backtest")))] };
 }
+
+export function parseExperimentInput(value) {
+  const input = object(value);
+  const budget = input.budget === undefined ? {} : object(input.budget);
+  const score = input.score === undefined ? {} : object(input.score);
+  const backtest = input.backtestConfig === undefined ? {} : object(input.backtestConfig);
+  return {
+    name: string(input.name, "Experiment name", { min: 2, max: 160 }),
+    objective: string(input.objective, "Objective", { min: 10, max: 5_000 }),
+    baseStrategyVersionId: identifier(input.baseStrategyVersionId, "Base strategy version"),
+    datasetSnapshotId: identifier(input.datasetSnapshotId, "Dataset snapshot"),
+    budget: {
+      maxGenerations: boundedNumber(budget.maxGenerations ?? 2, "Generation budget", { min: 1, max: 20, integer: true }),
+      candidatesPerGeneration: boundedNumber(budget.candidatesPerGeneration ?? 3, "Candidates per generation", { min: 1, max: 12, integer: true }),
+      maxBacktests: boundedNumber(budget.maxBacktests ?? 6, "Backtest budget", { min: 1, max: 120, integer: true }),
+      maxTokens: boundedNumber(budget.maxTokens ?? 0, "Experiment token budget", { min: 0, max: 20_000_000, integer: true }),
+      maxCostUsd: boundedNumber(budget.maxCostUsd ?? 0, "Experiment cost budget", { min: 0, max: 50_000 }),
+      maxDurationSeconds: boundedNumber(budget.maxDurationSeconds ?? 3_600, "Experiment duration budget", { min: 1, max: 86_400, integer: true }),
+      patienceGenerations: boundedNumber(budget.patienceGenerations ?? 2, "Patience generations", { min: 1, max: 20, integer: true }),
+      minImprovement: boundedNumber(budget.minImprovement ?? 0.001, "Minimum score improvement", { min: 0, max: 1_000 }),
+    },
+    score: {
+      metric: choice(score.metric || "sharpe", "Score metric", ["sharpe", "sortino", "totalReturn"]),
+      minTrades: boundedNumber(score.minTrades ?? 5, "Minimum trades", { min: 0, max: 10_000, integer: true }),
+      maxDrawdown: boundedNumber(score.maxDrawdown ?? 0.35, "Maximum drawdown", { min: 0, max: 1 }),
+      drawdownPenalty: boundedNumber(score.drawdownPenalty ?? 0.25, "Drawdown penalty", { min: 0, max: 100 }),
+    },
+    backtestConfig: {
+      initialCapital: boundedNumber(backtest.initialCapital ?? 100_000, "Initial capital", { min: 100, max: 1_000_000_000 }),
+      costBps: boundedNumber(backtest.costBps ?? 2, "Transaction cost", { min: 0, max: 1_000 }),
+      slippageBps: boundedNumber(backtest.slippageBps ?? 1, "Slippage", { min: 0, max: 1_000 }),
+      validationSeed: boundedNumber(backtest.validationSeed ?? 991, "Validation seed", { min: 1, max: 2_147_483_647, integer: true }),
+      validationSamples: boundedNumber(backtest.validationSamples ?? 100, "Validation samples", { min: 50, max: 500, integer: true }),
+    },
+  };
+}

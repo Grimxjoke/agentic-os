@@ -165,7 +165,7 @@ export type HypothesisRecord = {
   sourceUri: string | null; createdBy: string; createdAt: string; updatedAt: string;
 };
 
-export type KnowledgeNode = { id: string; entityId: string; type: "agent" | "team" | "run" | "artifact" | "hypothesis" | "memory" | "strategy" | "backtest"; label: string; detail: string; uri: string };
+export type KnowledgeNode = { id: string; entityId: string; type: "agent" | "team" | "run" | "artifact" | "hypothesis" | "memory" | "strategy" | "backtest" | "experiment" | "candidate"; label: string; detail: string; uri: string };
 export type KnowledgeEdge = { source: string; target: string; type: string };
 export type KnowledgeGraph = { generatedAt: string; nodes: KnowledgeNode[]; edges: KnowledgeEdge[] };
 
@@ -196,6 +196,29 @@ export type BacktestRecord = {
 };
 
 export type AlphaFactor = { id: string; family: string; name: string; description: string; status: "available" | "research" | "planned" };
+
+export type ExperimentStatus = "draft" | "queued" | "running" | "paused" | "completed" | "failed" | "cancelled";
+export type ExperimentCandidate = {
+  id: string; experimentId: string; generationId: string; ordinal: number; parentCandidateId: string | null;
+  strategyId: string | null; strategyVersionId: string | null; backtestId: string | null; name: string;
+  status: "proposed" | "queued" | "evaluating" | "completed" | "failed" | "eliminated";
+  parameters: Record<string, number | boolean>; score: number | null; eligible: boolean; reason: string | null;
+  createdAt: string; startedAt: string | null; finishedAt: string | null;
+};
+export type ExperimentGeneration = {
+  id: string; experimentId: string; number: number; status: "queued" | "running" | "completed" | "failed";
+  seedCandidateId: string | null; championCandidateId: string | null; lessons: string[];
+  createdAt: string; startedAt: string | null; finishedAt: string | null;
+};
+export type ExperimentRecord = {
+  id: string; name: string; objective: string; status: ExperimentStatus; baseStrategyVersionId: string; datasetSnapshotId: string;
+  config: BacktestRecord["config"]; budget: { maxGenerations: number; candidatesPerGeneration: number; maxBacktests: number; maxTokens: number; maxCostUsd: number; maxDurationSeconds: number; patienceGenerations: number; minImprovement: number };
+  scoreConfig: { metric: "sharpe" | "sortino" | "totalReturn"; minTrades: number; maxDrawdown: number; drawdownPenalty: number };
+  lessons: string[]; championCandidateId: string | null; generationsCompleted: number; candidatesEvaluated: number; backtestsUsed: number; tokensUsed: number; costUsd: number; bestScore: number | null; patienceUsed: number;
+  pauseRequestedAt: string | null; cancelRequestedAt: string | null; error: string | null; createdAt: string; startedAt: string | null;
+  updatedAt: string; finishedAt: string | null; generations?: ExperimentGeneration[]; candidates?: ExperimentCandidate[];
+  events?: Array<{ id: number; type: string; level: "info" | "warning" | "error"; message: string; createdAt: string }>;
+};
 
 export type SystemServiceStatus = "operational" | "available" | "unavailable" | "deferred";
 
@@ -252,6 +275,7 @@ export type SystemOverview = {
     artifacts?: number;
     strategies?: number;
     backtests?: number;
+    experiments?: number;
   };
   services: SystemService[];
   activity: ActivityEvent[];

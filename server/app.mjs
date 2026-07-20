@@ -7,11 +7,12 @@ import { createBacktestService } from "./backtest-service.mjs";
 import { loadConfig } from "./config.mjs";
 import { openDatabase } from "./database.mjs";
 import { createFileService } from "./files.mjs";
+import { createExperimentService } from "./experiments.mjs";
 import { json, readJson, sameOrigin, securityHeaders, serveStatic, unauthorized } from "./http.mjs";
 import { createRunOrchestrator, createVibeWorkerExecutor } from "./orchestrator.mjs";
 import { createRuntimeBridge } from "./runtimes.mjs";
 import { assertAllowed } from "./policies.mjs";
-import { parseAgent, parseAgentDefinitionInput, parseBacktestInput, parseBacktestSelectionInput, parseChatInput, parseConversationInput, parseFileWriteInput, parseHypothesisInput, parseMemoryInput, parseRunInput, parseStrategyDefinitionInput, parseStrategyObjectiveInput, parseSyntheticDatasetInput, parseTeamDefinitionInput, ValidationError } from "./schemas.mjs";
+import { parseAgent, parseAgentDefinitionInput, parseBacktestInput, parseBacktestSelectionInput, parseChatInput, parseConversationInput, parseExperimentInput, parseFileWriteInput, parseHypothesisInput, parseMemoryInput, parseRunInput, parseStrategyDefinitionInput, parseStrategyObjectiveInput, parseSyntheticDatasetInput, parseTeamDefinitionInput, ValidationError } from "./schemas.mjs";
 import { redact } from "./security.mjs";
 import { ControlPlaneStore } from "./store.mjs";
 import { createSystemService } from "./system.mjs";
@@ -86,7 +87,9 @@ export async function createOrbitApplication(overrides = {}) {
   const runExecutor = overrides.runExecutor || createVibeWorkerExecutor(vibe);
   const orchestrator = createRunOrchestrator({ store, executor: runExecutor, maxConcurrency: 2 });
   const backtests = createBacktestService({ store, dataDirectory });
+  const experiments = createExperimentService({ store, backtests, maxBacktestConcurrency: 1 });
   orchestrator.recover();
+  experiments.recover();
   const system = createSystemService({ db, databasePath, dataDirectory, store, version: packageJson.version, vibeClient: vibe });
   const handleVibe = createVibeApiHandler(vibe);
   const activeAgents = new Set();
@@ -290,6 +293,29 @@ export async function createOrbitApplication(overrides = {}) {
     }
     if (req.method === "GET" && url.pathname === "/api/alpha-zoo") {
       return json(res, 200, { ok: true, factors: alphaZoo });
+    }
+    if (req.method === "GET" && url.pathname === "/api/experiments") {
+      return json(res, 200, { ok: true, experiments: experiments.list(url.searchParams.get("limit")) });
+    }
+    if (req.method === "POST" && url.pathname === "/api/experiments") {
+      try {
+        assertAllowed("experiments.write");
+        const experiment = experiments.create(parseExperimentInput(await readJson(req)));
+        return experiment ? json(res, 201, { ok: true, experiment }) : json(res, 404, { error: "Base strategy version or dataset not found", code: "not_found" });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    const experimentActionMatch = /^\/api\/experiments\/([0-9a-f-]{36})\/(start|pause|resume|cancel)$/i.exec(url.pathname);
+    if (req.method === "POST" && experimentActionMatch) {
+      const [, experimentId, action] = experimentActionMatch;
+      if (!experiments.get(experimentId, false)) return json(res, 404, { error: "Experiment not found", code: "not_found" });
+      assertAllowed(action === "pause" ? "experiments.pause" : action === "cancel" ? "experiments.cancel" : "experiments.run");
+      const changed = action === "pause" ? experiments.pause(experimentId) : action === "cancel" ? experiments.cancel(experimentId) : experiments.start(experimentId);
+      return changed ? json(res, 202, { ok: true }) : json(res, 409, { error: `Experiment cannot ${action}`, code: "experiment_state" });
+    }
+    const experimentMatch = /^\/api\/experiments\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "GET" && experimentMatch) {
+      const experiment = experiments.get(experimentMatch[1]);
+      return experiment ? json(res, 200, { ok: true, experiment }) : json(res, 404, { error: "Experiment not found", code: "not_found" });
     }
     if (req.method === "GET" && url.pathname === "/api/agents") {
       return json(res, 200, { ok: true, agents: store.listAgents() });
@@ -516,6 +542,7 @@ export async function createOrbitApplication(overrides = {}) {
     store,
     files,
     backtests,
+    experiments,
     orchestrator,
     server,
     async close() {
