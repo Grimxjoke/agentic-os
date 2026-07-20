@@ -153,18 +153,14 @@ npm run dev
 
 The interface is served as `/orbit/`. Local data is created by default in `.orbit-data/`, a directory ignored by Git.
 
-For direct Google Identity Services authentication, set `ORBIT_AUTH_MODE=google`,
-`ORBIT_GOOGLE_CLIENT_ID` to a Web client ID, and `ORBIT_GOOGLE_ALLOWED_EMAIL` to
-the single permitted account. Orbit verifies Google's signed ID token server-side
-and then creates its normal revocable session. ngrok remains transport-only. See
-the [Google access runbook](docs/GOOGLE_ACCESS_RUNBOOK.md).
-
-The legacy `ngrok_google` mode remains available for deployments where ngrok's
-managed OAuth works reliably. It must only be used with a loopback-bound Orbit
-service because the ngrok edge becomes the authentication border.
+For temporary public test access, set `ORBIT_AUTH_MODE=none`. This bypasses the
+Orbit session border and therefore exposes the UI and protected API routes to anyone
+who knows the public URL. The mode is rejected unless Orbit remains loopback-bound;
+ngrok stays transport-only. See the [public access runbook](docs/PUBLIC_ACCESS_RUNBOOK.md).
 
 > [!CAUTION]
-> Never publish an Orbit token, OAuth credential, Vibe key or file from `/etc/orbit-os`, `/etc/vibe-trading` or private data directories.
+> Public mode permits file writes and agent/API execution. Never expose Orbit's
+> loopback ports directly or publish a token, Vibe key, or private runtime file.
 
 ## Useful commands
 
@@ -249,7 +245,7 @@ To report a vulnerability, avoid a public issue containing exploitable details o
 ## Documentation
 
 - [Continuation handoff](docs/CONTINUATION_HANDOFF.md)
-- [Google access runbook](docs/GOOGLE_ACCESS_RUNBOOK.md)
+- [Temporary public access runbook](docs/PUBLIC_ACCESS_RUNBOOK.md)
 - [Product PRD](docs/PRD.md)
 - [Architecture map](docs/ARCHITECTURE_MAP.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)

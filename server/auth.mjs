@@ -6,9 +6,9 @@ export function createAuth({ accessToken, store }) {
   const cookieName = "orbit_session";
   const legacyCookieName = "orbit_access";
 
-  function createSession(req, requestedLabel = "") {
+  function createSession(req) {
     const token = randomBytes(32).toString("base64url");
-    const label = String(requestedLabel || req.headers["user-agent"] || "Orbit browser").slice(0, 120);
+    const label = String(req.headers["user-agent"] || "Orbit browser").slice(0, 120);
     const session = store.createAccessSession({ tokenHash: hashToken(token), label });
     return { session, token };
   }
@@ -31,9 +31,9 @@ export function createAuth({ accessToken, store }) {
     return constantTimeTextEqual(candidate, accessToken);
   }
 
-  function establish(req, options = {}) {
+  function establish(req) {
     const secure = req.headers["x-forwarded-proto"] === "https";
-    const created = createSession(req, options.label);
+    const created = createSession(req);
     return {
       ...created,
       cookies: [
