@@ -200,6 +200,10 @@ global backtest budgets, incomplete and NaN score rejection, crash recovery,
 idempotence, protected Experiment Studio APIs, and explicit proof that no candidate
 is promoted to paper or live trading.
 
+Phase 7 raises the suite to **62 Orbit tests**, adding versioned workflow and Inbox
+persistence, idempotent schedule occurrences, timezone-aware daily schedules,
+independent approval branches, expiration paths, recovery, and a derived Kanban.
+
 ## Roadmap
 
 | Phase | Status | Result |
@@ -211,7 +215,7 @@ is promoted to paper or live trading.
 | 4 · Files, Memory, Knowledge | ✅ Implemented | bounded files, restorable backups, provenance and derived graph |
 | 5 · Strategy Factory | ✅ Implemented | reproducible backtests and statistical validations |
 | 6 · Experiment Studio | ✅ Implemented | durable bounded generations, evaluation and research champions |
-| 7 · Automations & Human Inbox | ⏳ Planned | durable workflows, schedules and bounded decisions |
+| 7 · Automations & Human Inbox | ✅ Implemented | durable workflows, schedules and bounded decisions |
 | 8 · Paper Trading | ⏳ Planned | sandbox broker, orders and reconciliation |
 | 9 · Limited Live Trading | ⏳ Gated | expiring mandates, reconciliation and kill switches |
 | 10 · Design consolidation | ⏳ Planned | responsive layout, real event motion and accessibility audit |

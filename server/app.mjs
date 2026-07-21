@@ -8,11 +8,12 @@ import { loadConfig } from "./config.mjs";
 import { openDatabase } from "./database.mjs";
 import { createFileService } from "./files.mjs";
 import { createExperimentService } from "./experiments.mjs";
+import { createAutomationService } from "./automations.mjs";
 import { json, readJson, sameOrigin, securityHeaders, serveStatic, unauthorized } from "./http.mjs";
 import { createRunOrchestrator, createVibeWorkerExecutor } from "./orchestrator.mjs";
 import { createRuntimeBridge } from "./runtimes.mjs";
 import { assertAllowed } from "./policies.mjs";
-import { parseAgent, parseAgentDefinitionInput, parseBacktestInput, parseBacktestSelectionInput, parseChatInput, parseConversationInput, parseExperimentInput, parseFileWriteInput, parseHypothesisInput, parseMemoryInput, parseRunInput, parseStrategyDefinitionInput, parseStrategyObjectiveInput, parseSyntheticDatasetInput, parseTeamDefinitionInput, ValidationError } from "./schemas.mjs";
+import { parseAgent, parseAgentDefinitionInput, parseBacktestInput, parseBacktestSelectionInput, parseChatInput, parseConversationInput, parseExperimentInput, parseFileWriteInput, parseHypothesisInput, parseInboxResolutionInput, parseMemoryInput, parseRunInput, parseStrategyDefinitionInput, parseStrategyObjectiveInput, parseSyntheticDatasetInput, parseTeamDefinitionInput, parseWorkflowInput, ValidationError } from "./schemas.mjs";
 import { redact } from "./security.mjs";
 import { ControlPlaneStore } from "./store.mjs";
 import { createSystemService } from "./system.mjs";
@@ -88,8 +89,12 @@ export async function createOrbitApplication(overrides = {}) {
   const orchestrator = createRunOrchestrator({ store, executor: runExecutor, maxConcurrency: 2 });
   const backtests = createBacktestService({ store, dataDirectory });
   const experiments = createExperimentService({ store, backtests, maxBacktestConcurrency: 1 });
+  const automations = createAutomationService({ store });
   orchestrator.recover();
   experiments.recover();
+  automations.recover();
+  const automationTimer = setInterval(() => automations.tick(), 30_000);
+  automationTimer.unref?.();
   const system = createSystemService({ db, databasePath, dataDirectory, store, version: packageJson.version, vibeClient: vibe });
   const handleVibe = createVibeApiHandler(vibe);
   const activeAgents = new Set();
@@ -297,6 +302,31 @@ export async function createOrbitApplication(overrides = {}) {
     if (req.method === "GET" && url.pathname === "/api/experiments") {
       return json(res, 200, { ok: true, experiments: experiments.list(url.searchParams.get("limit")) });
     }
+    if (req.method === "GET" && url.pathname === "/api/workflows") return json(res, 200, { ok: true, workflows: automations.list() });
+    if (req.method === "POST" && url.pathname === "/api/workflows") {
+      try { assertAllowed("workflows.write"); return json(res, 201, { ok: true, workflow: automations.create(parseWorkflowInput(await readJson(req))) }); }
+      catch (error) { return errorResponse(res, error, 400); }
+    }
+    const workflowMatch = /^\/api\/workflows\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "GET" && workflowMatch) { const workflow = automations.get(workflowMatch[1]); return workflow ? json(res, 200, { ok: true, workflow }) : json(res, 404, { error: "Workflow not found", code: "not_found" }); }
+    if (req.method === "PUT" && workflowMatch) {
+      try { assertAllowed("workflows.write"); const workflow = automations.update(workflowMatch[1], parseWorkflowInput(await readJson(req), { partial: true })); return workflow ? json(res, 200, { ok: true, workflow }) : json(res, 404, { error: "Workflow not found", code: "not_found" }); }
+      catch (error) { return errorResponse(res, error, 400); }
+    }
+    const workflowStartMatch = /^\/api\/workflows\/([0-9a-f-]{36})\/start$/i.exec(url.pathname);
+    if (req.method === "POST" && workflowStartMatch) {
+      try { assertAllowed("workflows.run"); const started = automations.start(workflowStartMatch[1]); return started ? json(res, started.duplicate ? 200 : 202, { ok: true, ...started }) : json(res, 404, { error: "Workflow not found", code: "not_found" }); }
+      catch (error) { return errorResponse(res, error, 400); }
+    }
+    const workflowRunMatch = /^\/api\/workflow-runs\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "GET" && workflowRunMatch) { const run = automations.runDetail(workflowRunMatch[1]); return run ? json(res, 200, { ok: true, run }) : json(res, 404, { error: "Workflow run not found", code: "not_found" }); }
+    if (req.method === "GET" && url.pathname === "/api/inbox") return json(res, 200, { ok: true, requests: automations.inbox() });
+    const inboxMatch = /^\/api\/inbox\/([0-9a-f-]{36})\/resolve$/i.exec(url.pathname);
+    if (req.method === "POST" && inboxMatch) {
+      try { assertAllowed("inbox.resolve"); const resolution = parseInboxResolutionInput(await readJson(req)); const result = automations.resolveInbox(inboxMatch[1], resolution.status, resolution.note); return result ? json(res, 200, { ok: true, ...result }) : json(res, 404, { error: "Inbox request not found", code: "not_found" }); }
+      catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/kanban") return json(res, 200, { ok: true, kanban: automations.kanban() });
     if (req.method === "POST" && url.pathname === "/api/experiments") {
       try {
         assertAllowed("experiments.write");
@@ -544,9 +574,11 @@ export async function createOrbitApplication(overrides = {}) {
     files,
     backtests,
     experiments,
+    automations,
     orchestrator,
     server,
     async close() {
+      clearInterval(automationTimer);
       await orchestrator.shutdown();
       if (vite) await vite.close();
       db.close();

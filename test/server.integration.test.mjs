@@ -155,6 +155,27 @@ test("authenticated API and SPA deep links work", async () => {
   assert.match(await page.text(), /<div id="root"><\/div>/);
 });
 
+test("Phase 7 persists executable workflows and exposes an empty durable inbox", async () => {
+  const headers = await authenticatedHeaders();
+  const workflow = await fetch(`${origin}/orbit/api/workflows`, {
+    method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Integration workflow", description: "Verifies the durable Phase 7 API.", enabled: false,
+      schedule: { kind: "daily", at: "09:00", timezone: "UTC" },
+      definition: { start: "start", nodes: [{ id: "start", kind: "trigger" }, { id: "notice", kind: "notify", message: "Completed" }], edges: [{ from: "start", to: "notice" }] },
+    }),
+  });
+  assert.equal(workflow.status, 201);
+  const created = await workflow.json();
+  assert.equal(created.workflow.status, "draft");
+  const listed = await fetch(`${origin}/orbit/api/workflows`, { headers });
+  assert.equal((await listed.json()).workflows.length, 1);
+  const inbox = await fetch(`${origin}/orbit/api/inbox`, { headers });
+  assert.deepEqual((await inbox.json()).requests, []);
+  const kanban = await fetch(`${origin}/orbit/api/kanban`, { headers });
+  assert.equal((await kanban.json()).kanban.backlog.length, 1);
+});
+
 test("cross-origin writes are rejected before agent execution", async () => {
   const headers = await authenticatedHeaders();
   const response = await fetch(`${origin}/orbit/api/chat`, {
@@ -232,7 +253,7 @@ test("system overview and backups expose measured, redacted data", async () => {
   assert.equal(overview.status, 200);
   const body = await overview.json();
   assert.equal(body.ok, true);
-  assert.equal(body.database.schemaVersion, 6);
+  assert.equal(body.database.schemaVersion, 7);
   assert.ok(body.services.some((service) => service.id === "orbit" && service.status === "operational"));
   assert.doesNotMatch(JSON.stringify(body), new RegExp(token));
   assert.doesNotMatch(JSON.stringify(body), /ORBIT_ACCESS_TOKEN|orbit-test-data/);

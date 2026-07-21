@@ -17,15 +17,15 @@ async function temporaryDatabase() {
 test("migrations are idempotent on an empty and an existing database", async () => {
   const first = await temporaryDatabase();
   try {
-    assert.equal(schemaVersion(first.db), 6);
+    assert.equal(schemaVersion(first.db), 7);
     const tables = first.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all().map((row) => row.name);
-    for (const name of ["access_sessions", "agent_versions", "agents", "artifact_index", "audit_entries", "backtest_validations", "backtests", "conversations", "dataset_snapshots", "decisions", "events", "experiment_candidates", "experiment_evaluations", "experiment_events", "experiment_generations", "experiments", "file_backups", "hypotheses", "jobs", "memories", "messages", "run_artifacts", "run_events", "run_workers", "runs", "schema_migrations", "strategies", "strategy_versions", "team_versions", "teams"]) {
+    for (const name of ["access_sessions", "agent_versions", "agents", "artifact_index", "audit_entries", "backtest_validations", "backtests", "conversations", "dataset_snapshots", "decisions", "events", "experiment_candidates", "experiment_evaluations", "experiment_events", "experiment_generations", "experiments", "file_backups", "hypotheses", "inbox_requests", "jobs", "memories", "messages", "notifications", "run_artifacts", "run_events", "run_workers", "runs", "schema_migrations", "strategies", "strategy_versions", "team_versions", "teams", "workflow_runs", "workflow_steps", "workflows"]) {
       assert.ok(tables.includes(name), `${name} should exist`);
     }
     first.db.close();
     const reopened = await openDatabase({ dataDirectory: first.directory });
-    assert.equal(schemaVersion(reopened.db), 6);
-    assert.equal(reopened.db.prepare("SELECT COUNT(*) count FROM schema_migrations").get().count, 6);
+    assert.equal(schemaVersion(reopened.db), 7);
+    assert.equal(reopened.db.prepare("SELECT COUNT(*) count FROM schema_migrations").get().count, 7);
     reopened.db.close();
   } finally {
     await rm(first.directory, { recursive: true, force: true });

@@ -36,10 +36,10 @@ async function fixture() {
   return { directory, opened, store, strategy, dataset, service: createExperimentService({ store, backtests: fakeBacktests, maxBacktestConcurrency: 1 }) };
 }
 
-test("schema v6 creates a deterministic two-generation, three-candidate research loop", async () => {
+test("current schema retains a deterministic two-generation, three-candidate research loop", async () => {
   const context = await fixture();
   try {
-    assert.equal(schemaVersion(context.opened.db), 6);
+    assert.equal(schemaVersion(context.opened.db), 7);
     const experiment = context.service.create(inputFor(context.strategy, context.dataset));
     await context.service.run(experiment.id);
     const completed = context.service.get(experiment.id);

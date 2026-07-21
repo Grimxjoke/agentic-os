@@ -321,3 +321,62 @@ export function parseExperimentInput(value) {
     },
   };
 }
+
+export function parseWorkflowInput(value, { partial = false } = {}) {
+  const input = object(value);
+  const result = {};
+  if (!partial || input.name !== undefined) result.name = string(input.name, "Workflow name", { min: 2, max: 160 });
+  if (!partial || input.description !== undefined) result.description = string(input.description ?? "", "Workflow description", { min: 0, max: 2_000 });
+  if (!partial || input.enabled !== undefined) {
+    if (typeof input.enabled !== "boolean") throw new ValidationError("Workflow enabled must be a boolean");
+    result.enabled = input.enabled;
+  }
+  if (!partial || input.definition !== undefined) {
+    const definition = object(input.definition);
+    if (!Array.isArray(definition.nodes) || definition.nodes.length < 1 || definition.nodes.length > 64) throw new ValidationError("Workflow needs between 1 and 64 nodes");
+    const ids = new Set();
+    const nodes = definition.nodes.map((node) => {
+      const parsed = object(node); const id = string(parsed.id, "Workflow node id", { min: 1, max: 80 });
+      if (ids.has(id)) throw new ValidationError("Workflow node ids must be unique"); ids.add(id);
+      const kind = choice(parsed.kind, "Workflow node kind", ["trigger", "notify", "approval", "noop"]);
+      const output = { id, kind };
+      if (kind === "approval") {
+        output.risk = choice(parsed.risk, "Approval risk", ["A", "B", "C", "D"]);
+        output.title = string(parsed.title, "Approval title", { min: 2, max: 200 });
+        output.detail = string(parsed.detail, "Approval detail", { min: 2, max: 1_400 });
+        if (parsed.expiresInSeconds !== undefined) output.expiresInSeconds = boundedNumber(parsed.expiresInSeconds, "Approval expiration", { min: 60, max: 2_592_000, integer: true });
+      }
+      if (kind === "notify") output.message = string(parsed.message, "Notification message", { min: 1, max: 1_400 });
+      return output;
+    });
+    const start = string(definition.start, "Workflow start node", { min: 1, max: 80 });
+    if (!ids.has(start)) throw new ValidationError("Workflow start node is missing");
+    if (!Array.isArray(definition.edges) || definition.edges.length > 128) throw new ValidationError("Workflow edges must be an array of at most 128 entries");
+    const edges = definition.edges.map((edge) => {
+      const parsed = object(edge); const from = string(parsed.from, "Workflow edge from", { min: 1, max: 80 }); const to = string(parsed.to, "Workflow edge to", { min: 1, max: 80 });
+      if (!ids.has(from) || !ids.has(to)) throw new ValidationError("Workflow edge refers to a missing node");
+      return { from, to, when: choice(parsed.when ?? "success", "Workflow edge outcome", ["success", "rejected"]) };
+    });
+    result.definition = { start, nodes, edges };
+  }
+  if (input.schedule !== undefined) {
+    if (input.schedule === null) result.schedule = null;
+    else {
+      const schedule = object(input.schedule); const kind = choice(schedule.kind, "Schedule kind", ["interval", "daily"]);
+      if (kind === "interval") result.schedule = { kind, everySeconds: boundedNumber(schedule.everySeconds, "Schedule interval", { min: 60, max: 2_592_000, integer: true }) };
+      else {
+        const at = string(schedule.at, "Daily schedule time", { min: 5, max: 5 });
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(at)) throw new ValidationError("Daily schedule time must use HH:MM");
+        const timezone = string(schedule.timezone ?? "UTC", "Schedule timezone", { min: 1, max: 100 });
+        try { new Intl.DateTimeFormat("en", { timeZone: timezone }); } catch { throw new ValidationError("Schedule timezone is invalid"); }
+        result.schedule = { kind, at, timezone };
+      }
+    }
+  }
+  return result;
+}
+
+export function parseInboxResolutionInput(value) {
+  const input = object(value);
+  return { status: choice(input.status, "Inbox resolution", ["approved", "rejected"]), note: string(input.note ?? "", "Resolution note", { min: 0, max: 1_400 }) };
+}

@@ -20,6 +20,9 @@ const policies = Object.freeze({
   "experiments.run": { risk: "B", allowed: true, confirmation: false },
   "experiments.pause": { risk: "B", allowed: true, confirmation: false },
   "experiments.cancel": { risk: "B", allowed: true, confirmation: false },
+  "workflows.write": { risk: "B", allowed: true, confirmation: false },
+  "workflows.run": { risk: "B", allowed: true, confirmation: false },
+  "inbox.resolve": { risk: "C", allowed: true, confirmation: true },
   "service.control": { risk: "C", allowed: false, confirmation: true },
   "trading.live": { risk: "D", allowed: false, confirmation: true },
 });
