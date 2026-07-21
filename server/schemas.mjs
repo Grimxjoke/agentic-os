@@ -219,3 +219,164 @@ export function parseHypothesisInput(value) {
     ...provenance(input, ["file", "run", "agent", "memory", "manual"]),
   };
 }
+
+export function parseStrategyObjectiveInput(value) {
+  const input = object(value);
+  return {
+    objective: string(input.objective, "Objective", { min: 10, max: 5_000 }),
+    hypothesisId: optionalId(input.hypothesisId, "Hypothesis") || null,
+    name: input.name ? string(input.name, "Name", { max: 160 }) : null,
+  };
+}
+
+export function parseStrategyDefinitionInput(value) {
+  const input = object(value);
+  const config = object(input.config);
+  const template = choice(input.template, "Strategy template", ["momentum", "mean_reversion"]);
+  const parsedConfig = template === "momentum" ? {
+    fastWindow: boundedNumber(config.fastWindow, "Fast window", { min: 2, max: 500, integer: true }),
+    slowWindow: boundedNumber(config.slowWindow, "Slow window", { min: 3, max: 1_000, integer: true }),
+    allowShort: Boolean(config.allowShort),
+    signalLag: boundedNumber(config.signalLag, "Signal lag", { min: 1, max: 20, integer: true }),
+  } : {
+    window: boundedNumber(config.window, "Window", { min: 3, max: 1_000, integer: true }),
+    entryZ: boundedNumber(config.entryZ, "Entry z-score", { min: 0.1, max: 10 }),
+    exitZ: boundedNumber(config.exitZ, "Exit z-score", { min: 0, max: 10 }),
+    allowShort: Boolean(config.allowShort),
+    signalLag: boundedNumber(config.signalLag, "Signal lag", { min: 1, max: 20, integer: true }),
+  };
+  return {
+    name: string(input.name, "Name", { max: 160 }), objective: string(input.objective, "Objective", { min: 10, max: 5_000 }),
+    thesis: string(input.thesis, "Thesis", { min: 10, max: 10_000 }), template,
+    code: string(input.code, "Code", { min: 10, max: 20_000 }), config: parsedConfig,
+    hypothesisId: optionalId(input.hypothesisId, "Hypothesis") || null,
+  };
+}
+
+export function parseSyntheticDatasetInput(value) {
+  const input = object(value);
+  return {
+    seed: boundedNumber(input.seed ?? 42, "Seed", { min: 1, max: 2_147_483_647, integer: true }),
+    rows: boundedNumber(input.rows ?? 756, "Rows", { min: 100, max: 5_000, integer: true }),
+    symbol: string(input.symbol || "SYNTH", "Symbol", { max: 32 }).toUpperCase(),
+    frequency: choice(input.frequency || "1d", "Frequency", ["1d"]),
+    drift: boundedNumber(input.drift ?? 0.00025, "Drift", { min: -0.01, max: 0.01 }),
+    volatility: boundedNumber(input.volatility ?? 0.012, "Volatility", { min: 0.0001, max: 0.2 }),
+  };
+}
+
+export function parseBacktestInput(value) {
+  const input = object(value);
+  return {
+    strategyVersionId: identifier(input.strategyVersionId, "Strategy version"),
+    datasetSnapshotId: identifier(input.datasetSnapshotId, "Dataset snapshot"),
+    config: {
+      initialCapital: boundedNumber(input.initialCapital ?? 100_000, "Initial capital", { min: 100, max: 1_000_000_000 }),
+      costBps: boundedNumber(input.costBps ?? 2, "Transaction cost", { min: 0, max: 1_000 }),
+      slippageBps: boundedNumber(input.slippageBps ?? 1, "Slippage", { min: 0, max: 1_000 }),
+      validationSeed: boundedNumber(input.validationSeed ?? 991, "Validation seed", { min: 1, max: 2_147_483_647, integer: true }),
+      validationSamples: boundedNumber(input.validationSamples ?? 200, "Validation samples", { min: 50, max: 500, integer: true }),
+    },
+  };
+}
+
+export function parseBacktestSelectionInput(value) {
+  const input = object(value);
+  if (!Array.isArray(input.ids) || input.ids.length < 2 || input.ids.length > 12) throw new ValidationError("Select between 2 and 12 backtests");
+  return { ids: [...new Set(input.ids.map((id) => identifier(id, "Backtest")))] };
+}
+
+export function parseExperimentInput(value) {
+  const input = object(value);
+  const budget = input.budget === undefined ? {} : object(input.budget);
+  const score = input.score === undefined ? {} : object(input.score);
+  const backtest = input.backtestConfig === undefined ? {} : object(input.backtestConfig);
+  return {
+    name: string(input.name, "Experiment name", { min: 2, max: 160 }),
+    objective: string(input.objective, "Objective", { min: 10, max: 5_000 }),
+    baseStrategyVersionId: identifier(input.baseStrategyVersionId, "Base strategy version"),
+    datasetSnapshotId: identifier(input.datasetSnapshotId, "Dataset snapshot"),
+    budget: {
+      maxGenerations: boundedNumber(budget.maxGenerations ?? 2, "Generation budget", { min: 1, max: 20, integer: true }),
+      candidatesPerGeneration: boundedNumber(budget.candidatesPerGeneration ?? 3, "Candidates per generation", { min: 1, max: 12, integer: true }),
+      maxBacktests: boundedNumber(budget.maxBacktests ?? 6, "Backtest budget", { min: 1, max: 120, integer: true }),
+      maxTokens: boundedNumber(budget.maxTokens ?? 0, "Experiment token budget", { min: 0, max: 20_000_000, integer: true }),
+      maxCostUsd: boundedNumber(budget.maxCostUsd ?? 0, "Experiment cost budget", { min: 0, max: 50_000 }),
+      maxDurationSeconds: boundedNumber(budget.maxDurationSeconds ?? 3_600, "Experiment duration budget", { min: 1, max: 86_400, integer: true }),
+      patienceGenerations: boundedNumber(budget.patienceGenerations ?? 2, "Patience generations", { min: 1, max: 20, integer: true }),
+      minImprovement: boundedNumber(budget.minImprovement ?? 0.001, "Minimum score improvement", { min: 0, max: 1_000 }),
+    },
+    score: {
+      metric: choice(score.metric || "sharpe", "Score metric", ["sharpe", "sortino", "totalReturn"]),
+      minTrades: boundedNumber(score.minTrades ?? 5, "Minimum trades", { min: 0, max: 10_000, integer: true }),
+      maxDrawdown: boundedNumber(score.maxDrawdown ?? 0.35, "Maximum drawdown", { min: 0, max: 1 }),
+      drawdownPenalty: boundedNumber(score.drawdownPenalty ?? 0.25, "Drawdown penalty", { min: 0, max: 100 }),
+    },
+    backtestConfig: {
+      initialCapital: boundedNumber(backtest.initialCapital ?? 100_000, "Initial capital", { min: 100, max: 1_000_000_000 }),
+      costBps: boundedNumber(backtest.costBps ?? 2, "Transaction cost", { min: 0, max: 1_000 }),
+      slippageBps: boundedNumber(backtest.slippageBps ?? 1, "Slippage", { min: 0, max: 1_000 }),
+      validationSeed: boundedNumber(backtest.validationSeed ?? 991, "Validation seed", { min: 1, max: 2_147_483_647, integer: true }),
+      validationSamples: boundedNumber(backtest.validationSamples ?? 100, "Validation samples", { min: 50, max: 500, integer: true }),
+    },
+  };
+}
+
+export function parseWorkflowInput(value, { partial = false } = {}) {
+  const input = object(value);
+  const result = {};
+  if (!partial || input.name !== undefined) result.name = string(input.name, "Workflow name", { min: 2, max: 160 });
+  if (!partial || input.description !== undefined) result.description = string(input.description ?? "", "Workflow description", { min: 0, max: 2_000 });
+  if (!partial || input.enabled !== undefined) {
+    if (typeof input.enabled !== "boolean") throw new ValidationError("Workflow enabled must be a boolean");
+    result.enabled = input.enabled;
+  }
+  if (!partial || input.definition !== undefined) {
+    const definition = object(input.definition);
+    if (!Array.isArray(definition.nodes) || definition.nodes.length < 1 || definition.nodes.length > 64) throw new ValidationError("Workflow needs between 1 and 64 nodes");
+    const ids = new Set();
+    const nodes = definition.nodes.map((node) => {
+      const parsed = object(node); const id = string(parsed.id, "Workflow node id", { min: 1, max: 80 });
+      if (ids.has(id)) throw new ValidationError("Workflow node ids must be unique"); ids.add(id);
+      const kind = choice(parsed.kind, "Workflow node kind", ["trigger", "notify", "approval", "noop"]);
+      const output = { id, kind };
+      if (kind === "approval") {
+        output.risk = choice(parsed.risk, "Approval risk", ["A", "B", "C", "D"]);
+        output.title = string(parsed.title, "Approval title", { min: 2, max: 200 });
+        output.detail = string(parsed.detail, "Approval detail", { min: 2, max: 1_400 });
+        if (parsed.expiresInSeconds !== undefined) output.expiresInSeconds = boundedNumber(parsed.expiresInSeconds, "Approval expiration", { min: 60, max: 2_592_000, integer: true });
+      }
+      if (kind === "notify") output.message = string(parsed.message, "Notification message", { min: 1, max: 1_400 });
+      return output;
+    });
+    const start = string(definition.start, "Workflow start node", { min: 1, max: 80 });
+    if (!ids.has(start)) throw new ValidationError("Workflow start node is missing");
+    if (!Array.isArray(definition.edges) || definition.edges.length > 128) throw new ValidationError("Workflow edges must be an array of at most 128 entries");
+    const edges = definition.edges.map((edge) => {
+      const parsed = object(edge); const from = string(parsed.from, "Workflow edge from", { min: 1, max: 80 }); const to = string(parsed.to, "Workflow edge to", { min: 1, max: 80 });
+      if (!ids.has(from) || !ids.has(to)) throw new ValidationError("Workflow edge refers to a missing node");
+      return { from, to, when: choice(parsed.when ?? "success", "Workflow edge outcome", ["success", "rejected"]) };
+    });
+    result.definition = { start, nodes, edges };
+  }
+  if (input.schedule !== undefined) {
+    if (input.schedule === null) result.schedule = null;
+    else {
+      const schedule = object(input.schedule); const kind = choice(schedule.kind, "Schedule kind", ["interval", "daily"]);
+      if (kind === "interval") result.schedule = { kind, everySeconds: boundedNumber(schedule.everySeconds, "Schedule interval", { min: 60, max: 2_592_000, integer: true }) };
+      else {
+        const at = string(schedule.at, "Daily schedule time", { min: 5, max: 5 });
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(at)) throw new ValidationError("Daily schedule time must use HH:MM");
+        const timezone = string(schedule.timezone ?? "UTC", "Schedule timezone", { min: 1, max: 100 });
+        try { new Intl.DateTimeFormat("en", { timeZone: timezone }); } catch { throw new ValidationError("Schedule timezone is invalid"); }
+        result.schedule = { kind, at, timezone };
+      }
+    }
+  }
+  return result;
+}
+
+export function parseInboxResolutionInput(value) {
+  const input = object(value);
+  return { status: choice(input.status, "Inbox resolution", ["approved", "rejected"]), note: string(input.note ?? "", "Resolution note", { min: 0, max: 1_400 }) };
+}

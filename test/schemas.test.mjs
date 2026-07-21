@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseAgentDefinitionInput, parseChatInput, parseConversationInput, parseTeamDefinitionInput, ValidationError } from "../server/schemas.mjs";
+import { parseAgentDefinitionInput, parseChatInput, parseConversationInput, parseExperimentInput, parseTeamDefinitionInput, ValidationError } from "../server/schemas.mjs";
 
 test("chat schema accepts only bounded known values", () => {
   assert.deepEqual(parseChatInput({ agent: "codex", mode: "build", message: "  hello  " }), {
@@ -48,4 +48,15 @@ test("team definitions accept a DAG and reject cycles or excess concurrency", ()
     { ...valid.nodes[0], dependsOn: ["review"] }, valid.nodes[1],
   ] }), (error) => error.code === "cyclic_team");
   assert.throws(() => parseTeamDefinitionInput({ ...valid, nodes: [{ ...valid.nodes[0], dependsOn: ["missing"] }] }), (error) => error.code === "unknown_dependency");
+});
+
+test("experiment contracts bound generations, CPU work and score constraints", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  const parsed = parseExperimentInput({ name: "Search", objective: "Find a bounded research challenger.", baseStrategyVersionId: id, datasetSnapshotId: id });
+  assert.deepEqual(parsed.budget, { maxGenerations: 2, candidatesPerGeneration: 3, maxBacktests: 6, maxTokens: 0, maxCostUsd: 0, maxDurationSeconds: 3600, patienceGenerations: 2, minImprovement: 0.001 });
+  assert.equal(parsed.score.metric, "sharpe");
+  assert.throws(() => parseExperimentInput({ ...parsed, budget: { ...parsed.budget, candidatesPerGeneration: 13 } }), /Invalid candidates per generation/);
+  assert.throws(() => parseExperimentInput({ ...parsed, budget: { ...parsed.budget, maxTokens: 20_000_001 } }), /Invalid experiment token budget/);
+  assert.throws(() => parseExperimentInput({ ...parsed, budget: { ...parsed.budget, maxCostUsd: -1 } }), /Invalid experiment cost budget/);
+  assert.throws(() => parseExperimentInput({ ...parsed, score: { ...parsed.score, metric: "magic" } }), /Invalid score metric/);
 });

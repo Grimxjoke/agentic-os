@@ -70,5 +70,6 @@ function group(type: KnowledgeNode["type"]) {
   if (type === "agent") return "agent";
   if (type === "memory" || type === "artifact") return "knowledge";
   if (type === "hypothesis") return "work";
+  if (type === "strategy" || type === "backtest") return "work";
   return "core";
 }

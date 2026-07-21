@@ -208,6 +208,8 @@ Tests :
 
 ### Phase 6 — Experiment Studio
 
+Status as of July 20, 2026: implemented on `agent/phase-6-experiment-studio`; local build and deterministic suite pass. Human acceptance, deployment, and merge remain pending.
+
 Livrables :
 
 - Experiment/Generation/Candidate/Evaluation models;
@@ -233,21 +235,20 @@ Tests :
 
 ### Phase 7 — Automations and Human Inbox
 
-Livrables :
+Delivered:
 
-- workflow builder mapped to an executable schema;
-- scheduler durable ;
-- independent branches not blocked by a decision;
-- notifications and expirations;
-- Kanban derived from objectives/jobs/decisions.
+- a workflow builder mapped to a validated executable schema;
+- a durable scheduler with IANA timezone and UTC occurrence keys;
+- independent branches that are not blocked by a pending decision;
+- durable notifications, approvals, rejections, and expirations;
+- a Kanban derived from workflows, runs, and Inbox requests.
 
-Tests :
+Tests:
 
-- UTC time/zone and time change;
-- execution missed during downtime;
-- deduplication;
-- approval/rejection/expiration;
-- retry without double effect.
+- UTC timezone scheduling and next-occurrence calculation;
+- recovery and schedule-occurrence deduplication;
+- approval, rejection, and expiration paths;
+- idempotent Inbox resolution without duplicate effects.
 
 ### Phase 8 — Paper Trading
 

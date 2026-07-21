@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Activity, Archive, Atom, Bot, Boxes, ChevronLeft, CircleDollarSign, Columns3,
-  Command, Cpu, FileCode2, FolderTree, Gauge, GitBranch, History, Inbox, Menu,
+  Command, Cpu, FileCode2, FlaskConical, FolderTree, Gauge, GitBranch, History, Inbox, Library, Menu,
   MessageSquareText, Moon, Network, Orbit, Search, Settings, Sparkles,
   Sun, TerminalSquare, Timer, WandSparkles, Workflow, X, Zap,
 } from "lucide-react";
@@ -12,7 +12,7 @@ import type { SystemOverview } from "../types";
 
 const navigation = [
   { group: "Flight deck", items: [
-    { to: "/observatory", label: "Observatoire", icon: Orbit },
+    { to: "/observatory", label: "Observatory", icon: Orbit },
     { to: "/chat/pi", label: "Pi Chat", icon: MessageSquareText, badge: "PI" },
     { to: "/chat/codex", label: "Codex Chat", icon: Command, badge: "CX" },
     { to: "/inbox", label: "Human Inbox", icon: Inbox },
@@ -20,6 +20,12 @@ const navigation = [
   { group: "Orchestration", items: [
     { to: "/agents", label: "Agents", icon: Bot },
     { to: "/runs", label: "Teams & Runs", icon: Workflow },
+    { to: "/strategies", label: "Strategy Factory", icon: FlaskConical },
+    { to: "/backtests", label: "Backtests", icon: Activity },
+    { to: "/experiments", label: "Experiment Studio", icon: Sparkles },
+    { to: "/compare", label: "Compare", icon: GitBranch },
+    { to: "/correlation", label: "Correlation", icon: Network },
+    { to: "/alpha-zoo", label: "Alpha Zoo", icon: Library },
     { to: "/skills", label: "Skills", icon: WandSparkles },
     { to: "/cron", label: "Cron Jobs", icon: Timer },
     { to: "/kanban", label: "Kanban", icon: Columns3 },
@@ -105,7 +111,7 @@ export function AppLayout() {
           <button className="icon-button mobile-close" onClick={() => setMobileOpen(false)} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
-        <nav className="main-nav" aria-label="Navigation principale">
+        <nav className="main-nav" aria-label="Primary navigation">
           {navigation.map((section) => (
             <div className="nav-section" key={section.group}>
               <p className="nav-label">{section.group}</p>
@@ -122,14 +128,14 @@ export function AppLayout() {
           <button className={"demo-pulse system-pulse-button " + (!systemError && system ? "active" : "")} onClick={() => go("/control")}>
             <span className="pulse-dot" /><span><strong>{systemError ? "Degraded system" : system ? "Active control plane" : "Connecting…"}</strong><small>{system ? `${system.counts.events} persisted events` : "Synchronizing Orbit"}</small></span><Gauge size={14} />
           </button>
-          <div className="profile-chip"><div className="profile-avatar">PB</div><div><strong>Workspace de Paul</strong><small>V0.5 · Private VPS</small></div><Sparkles size={15} /></div>
+          <div className="profile-chip"><div className="profile-avatar">PB</div><div><strong>Paul's workspace</strong><small>V0.5 · Private VPS</small></div><Sparkles size={15} /></div>
         </div>
       </aside>
 
       <div className="workspace-shell">
         <header className="topbar">
           <button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={19} /></button>
-          <div className="breadcrumbs"><Boxes size={15} /><span>Orbit OS</span><i>/</i><strong>{allItems.find((item) => item.to === location.pathname)?.label ?? "Observatoire"}</strong></div>
+          <div className="breadcrumbs"><Boxes size={15} /><span>Orbit OS</span><i>/</i><strong>{allItems.find((item) => item.to === location.pathname)?.label ?? "Observatory"}</strong></div>
           <button className="command-search" onClick={() => setPaletteOpen(true)}><Search size={15} /><span>Search, open or manage…</span><kbd>⌘ K</kbd></button>
           <button className={`system-chip ${systemError ? "degraded" : ""}`} onClick={() => go("/control")}><Network size={14} /><span>{system ? `${serviceCount}/${system.services.length} systems` : systemError ? "Degraded system" : "Connecting…"}</span><i /></button>
           <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Activate light lunar theme" : "Enable Dark Orbital Theme"} data-feedback={theme === "dark" ? "Lunar theme activated" : "Orbital theme activated"}>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
@@ -142,12 +148,12 @@ export function AppLayout() {
           <div className="command-palette v03-palette" onMouseDown={(event) => event.stopPropagation()}>
             <div className="palette-input"><Search size={18} /><input autoFocus placeholder="Order, file, agent or page…" /><kbd>ESC</kbd></div>
             <div className="palette-orbit"><span><Command size={13} />Universal command deck</span><small>Orbit navigation · bounded operations</small></div>
-            <p className="palette-label">Actions rapides</p>
+            <p className="palette-label">Quick actions</p>
             <div className="palette-results">
               <button onClick={() => go("/chat/codex")}><Command size={17} /><span><strong>Ask Codex to build</strong><small>Log in to Build mode</small></span><kbd>↵</kbd></button>
               <button onClick={() => go("/chat/pi")}><Bot size={17} /><span><strong>Plan with Pi</strong><small>Orchestrate the shared workspace</small></span></button>
               <button onClick={() => go("/control")}><TerminalSquare size={17} /><span><strong>Control services</strong><small>Visual Control Center</small></span></button>
-              <button onClick={() => go("/vibe")}><Zap size={17} /><span><strong>Explorer Vibe-Trading</strong><small>Docs, skills, agents and orders</small></span></button>
+              <button onClick={() => go("/vibe")}><Zap size={17} /><span><strong>Explore Vibe-Trading</strong><small>Docs, skills, agents and orders</small></span></button>
               <button onClick={() => go("/kanban")}><Columns3 size={17} /><span><strong>Create a mission</strong><small>Add a card to shared Kanban</small></span></button>
               <button onClick={() => go("/switchboard")}><GitBranch size={17} /><span><strong>Inspect connections</strong><small>View the System Switchboard</small></span></button>
             </div>

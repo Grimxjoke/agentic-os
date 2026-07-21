@@ -1,0 +1,13 @@
+import { useEffect, useState } from "react";
+import { Grid3X3, Network } from "lucide-react";
+import { PageHeader } from "../components/PageHeader";
+import { api } from "../lib/api";
+import type { BacktestRecord } from "../types";
+
+export function CorrelationPage() {
+  const [runs, setRuns] = useState<BacktestRecord[]>([]); const [selected, setSelected] = useState<string[]>([]);
+  const [result, setResult] = useState<{ labels: string[]; matrix: number[][] } | null>(null); const [error, setError] = useState("");
+  useEffect(() => { api<{ backtests: BacktestRecord[] }>("/backtests").then((response) => setRuns(response.backtests.filter((run) => run.status === "completed"))).catch((reason) => setError(reason.message)); }, []);
+  const calculate = async () => { try { const response = await api<{ correlation: { labels: string[]; matrix: number[][] } }>("/backtests/correlation", { method: "POST", body: JSON.stringify({ ids: selected }) }); setResult(response.correlation); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "Correlation failed"); setResult(null); } };
+  return <div className="page correlation-page"><PageHeader eyebrow="Return-series structure" title="Strategy Correlation" description="Measure diversification across compatible net return series, after the same costs and on the same immutable dataset." actions={<button className="button primary" onClick={calculate} disabled={selected.length < 2}><Grid3X3 size={15} />Calculate matrix</button>} />{error && <div className="phase4-error">{error}</div>}<section className="compare-selector">{runs.map((run) => <label key={run.id} className={selected.includes(run.id) ? "selected" : ""}><input type="checkbox" checked={selected.includes(run.id)} onChange={() => setSelected((current) => current.includes(run.id) ? current.filter((id) => id !== run.id) : [...current, run.id])} /><span><strong>{run.strategySnapshot.name}</strong><small>{run.dataSnapshot.checksum.slice(0, 10)}</small></span></label>)}</section>{result ? <section className="correlation-matrix glass-panel"><div className="matrix-grid" style={{ gridTemplateColumns: `150px repeat(${result.labels.length}, minmax(70px,1fr))` }}><span />{result.labels.map((label, index) => <strong key={`${label}-${index}`}>{label}</strong>)}{result.labels.flatMap((label, row) => [<strong key={`${label}-${row}-head`}>{label}</strong>, ...result.matrix[row].map((value, column) => <span key={`${row}-${column}`} style={{ background: `color-mix(in srgb, ${value >= 0 ? "var(--cyan)" : "var(--rose)"} ${Math.abs(value) * 35}%, transparent)` }}>{value.toFixed(2)}</span>)])}</div></section> : <div className="phase4-placeholder"><Network size={30} /><h2>No correlation matrix yet</h2></div>}</div>;
+}

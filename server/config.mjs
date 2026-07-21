@@ -11,6 +11,7 @@ export function loadConfig(overrides = {}) {
     port: Number(process.env.PORT || 4173),
     host: process.env.HOST || "127.0.0.1",
     isDev: process.argv.includes("--dev"),
+    authMode: process.env.ORBIT_AUTH_MODE || "token",
     accessToken: process.env.ORBIT_ACCESS_TOKEN || randomBytes(32).toString("base64url"),
     vibeBaseUrl: process.env.VIBE_BASE_URL || "http://127.0.0.1:8899",
     vibeApiKey: process.env.VIBE_API_KEY || "",
@@ -22,6 +23,10 @@ export function loadConfig(overrides = {}) {
   ];
   if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65_535) {
     throw new Error(`Invalid PORT: ${config.port}`);
+  }
+  if (!["token", "none"].includes(config.authMode)) throw new Error("Invalid ORBIT_AUTH_MODE");
+  if (config.authMode === "none" && !["127.0.0.1", "::1", "localhost"].includes(config.host)) {
+    throw new Error(`${config.authMode} authentication mode requires a loopback-only Orbit host`);
   }
   return config;
 }

@@ -2,14 +2,18 @@ import { access, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { createAuth } from "./auth.mjs";
+import { alphaZoo, createSyntheticDataset, strategyFromObjective } from "./backtests.mjs";
+import { createBacktestService } from "./backtest-service.mjs";
 import { loadConfig } from "./config.mjs";
 import { openDatabase } from "./database.mjs";
 import { createFileService } from "./files.mjs";
+import { createExperimentService } from "./experiments.mjs";
+import { createAutomationService } from "./automations.mjs";
 import { json, readJson, sameOrigin, securityHeaders, serveStatic, unauthorized } from "./http.mjs";
 import { createRunOrchestrator, createVibeWorkerExecutor } from "./orchestrator.mjs";
 import { createRuntimeBridge } from "./runtimes.mjs";
 import { assertAllowed } from "./policies.mjs";
-import { parseAgent, parseAgentDefinitionInput, parseChatInput, parseConversationInput, parseFileWriteInput, parseHypothesisInput, parseMemoryInput, parseRunInput, parseTeamDefinitionInput, ValidationError } from "./schemas.mjs";
+import { parseAgent, parseAgentDefinitionInput, parseBacktestInput, parseBacktestSelectionInput, parseChatInput, parseConversationInput, parseExperimentInput, parseFileWriteInput, parseHypothesisInput, parseInboxResolutionInput, parseMemoryInput, parseRunInput, parseStrategyDefinitionInput, parseStrategyObjectiveInput, parseSyntheticDatasetInput, parseTeamDefinitionInput, parseWorkflowInput, ValidationError } from "./schemas.mjs";
 import { redact } from "./security.mjs";
 import { ControlPlaneStore } from "./store.mjs";
 import { createSystemService } from "./system.mjs";
@@ -77,12 +81,20 @@ export async function createOrbitApplication(overrides = {}) {
   };
   await refreshArtifacts();
   store.reconcileStaleJobs();
+  store.reconcileStaleBacktests();
   const auth = createAuth({ accessToken: config.accessToken, store });
   const runtimes = config.runtimes || createRuntimeBridge({ workspace: config.workspace });
   const vibe = config.vibeClient || createVibeClient({ baseUrl: config.vibeBaseUrl, apiKey: config.vibeApiKey });
   const runExecutor = overrides.runExecutor || createVibeWorkerExecutor(vibe);
   const orchestrator = createRunOrchestrator({ store, executor: runExecutor, maxConcurrency: 2 });
+  const backtests = createBacktestService({ store, dataDirectory });
+  const experiments = createExperimentService({ store, backtests, maxBacktestConcurrency: 1 });
+  const automations = createAutomationService({ store });
   orchestrator.recover();
+  experiments.recover();
+  automations.recover();
+  const automationTimer = setInterval(() => automations.tick(), 30_000);
+  automationTimer.unref?.();
   const system = createSystemService({ db, databasePath, dataDirectory, store, version: packageJson.version, vibeClient: vibe });
   const handleVibe = createVibeApiHandler(vibe);
   const activeAgents = new Set();
@@ -219,6 +231,121 @@ export async function createOrbitApplication(overrides = {}) {
       try {
         return json(res, 200, { ok: true, graph: store.knowledgeGraph(url.searchParams.get("q") || "") });
       } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/strategies") {
+      return json(res, 200, { ok: true, strategies: store.listStrategies() });
+    }
+    if (req.method === "POST" && url.pathname === "/api/strategies/generate") {
+      try {
+        assertAllowed("strategies.write");
+        const input = parseStrategyObjectiveInput(await readJson(req));
+        const generated = strategyFromObjective(input.objective);
+        const strategy = store.createStrategy({ ...generated, objective: input.objective, name: input.name || generated.name, hypothesisId: input.hypothesisId });
+        return json(res, 201, { ok: true, strategy });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    const strategyVersionsMatch = /^\/api\/strategies\/([0-9a-f-]{36})\/versions$/i.exec(url.pathname);
+    if (req.method === "GET" && strategyVersionsMatch) {
+      const strategy = store.getStrategy(strategyVersionsMatch[1]);
+      return strategy ? json(res, 200, { ok: true, strategy, versions: store.listStrategyVersions(strategy.id) }) : json(res, 404, { error: "Strategy not found", code: "not_found" });
+    }
+    if (req.method === "POST" && strategyVersionsMatch) {
+      try {
+        assertAllowed("strategies.write");
+        const strategy = store.createStrategyVersion(strategyVersionsMatch[1], parseStrategyDefinitionInput(await readJson(req)));
+        return strategy ? json(res, 201, { ok: true, strategy }) : json(res, 404, { error: "Strategy not found", code: "not_found" });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/datasets") {
+      return json(res, 200, { ok: true, datasets: store.listDatasetSnapshots() });
+    }
+    if (req.method === "POST" && url.pathname === "/api/datasets/synthetic") {
+      try {
+        assertAllowed("datasets.generate");
+        const generated = createSyntheticDataset(parseSyntheticDatasetInput(await readJson(req)));
+        const dataset = store.createDatasetSnapshot(generated);
+        return json(res, 201, { ok: true, dataset });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/backtests") {
+      return json(res, 200, { ok: true, backtests: store.listBacktests(url.searchParams.get("limit")) });
+    }
+    if (req.method === "POST" && url.pathname === "/api/backtests") {
+      try {
+        assertAllowed("backtests.run");
+        const input = parseBacktestInput(await readJson(req));
+        const created = store.createBacktest(input);
+        if (!created) return json(res, 404, { error: "Strategy version or dataset snapshot not found", code: "not_found" });
+        return json(res, 201, { ok: true, backtest: await backtests.execute(created.id) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    const backtestMatch = /^\/api\/backtests\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "GET" && backtestMatch) {
+      const backtest = await backtests.detail(backtestMatch[1]);
+      return backtest ? json(res, 200, { ok: true, backtest }) : json(res, 404, { error: "Backtest not found", code: "not_found" });
+    }
+    if (req.method === "POST" && url.pathname === "/api/backtests/compare") {
+      try {
+        const input = parseBacktestSelectionInput(await readJson(req));
+        return json(res, 200, { ok: true, backtests: backtests.comparison(input.ids) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "POST" && url.pathname === "/api/backtests/correlation") {
+      try {
+        const input = parseBacktestSelectionInput(await readJson(req));
+        return json(res, 200, { ok: true, correlation: backtests.correlations(input.ids) });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/alpha-zoo") {
+      return json(res, 200, { ok: true, factors: alphaZoo });
+    }
+    if (req.method === "GET" && url.pathname === "/api/experiments") {
+      return json(res, 200, { ok: true, experiments: experiments.list(url.searchParams.get("limit")) });
+    }
+    if (req.method === "GET" && url.pathname === "/api/workflows") return json(res, 200, { ok: true, workflows: automations.list() });
+    if (req.method === "POST" && url.pathname === "/api/workflows") {
+      try { assertAllowed("workflows.write"); return json(res, 201, { ok: true, workflow: automations.create(parseWorkflowInput(await readJson(req))) }); }
+      catch (error) { return errorResponse(res, error, 400); }
+    }
+    const workflowMatch = /^\/api\/workflows\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "GET" && workflowMatch) { const workflow = automations.get(workflowMatch[1]); return workflow ? json(res, 200, { ok: true, workflow }) : json(res, 404, { error: "Workflow not found", code: "not_found" }); }
+    if (req.method === "PUT" && workflowMatch) {
+      try { assertAllowed("workflows.write"); const workflow = automations.update(workflowMatch[1], parseWorkflowInput(await readJson(req), { partial: true })); return workflow ? json(res, 200, { ok: true, workflow }) : json(res, 404, { error: "Workflow not found", code: "not_found" }); }
+      catch (error) { return errorResponse(res, error, 400); }
+    }
+    const workflowStartMatch = /^\/api\/workflows\/([0-9a-f-]{36})\/start$/i.exec(url.pathname);
+    if (req.method === "POST" && workflowStartMatch) {
+      try { assertAllowed("workflows.run"); const started = automations.start(workflowStartMatch[1]); return started ? json(res, started.duplicate ? 200 : 202, { ok: true, ...started }) : json(res, 404, { error: "Workflow not found", code: "not_found" }); }
+      catch (error) { return errorResponse(res, error, 400); }
+    }
+    const workflowRunMatch = /^\/api\/workflow-runs\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "GET" && workflowRunMatch) { const run = automations.runDetail(workflowRunMatch[1]); return run ? json(res, 200, { ok: true, run }) : json(res, 404, { error: "Workflow run not found", code: "not_found" }); }
+    if (req.method === "GET" && url.pathname === "/api/inbox") return json(res, 200, { ok: true, requests: automations.inbox() });
+    const inboxMatch = /^\/api\/inbox\/([0-9a-f-]{36})\/resolve$/i.exec(url.pathname);
+    if (req.method === "POST" && inboxMatch) {
+      try { assertAllowed("inbox.resolve"); const resolution = parseInboxResolutionInput(await readJson(req)); const result = automations.resolveInbox(inboxMatch[1], resolution.status, resolution.note); return result ? json(res, 200, { ok: true, ...result }) : json(res, 404, { error: "Inbox request not found", code: "not_found" }); }
+      catch (error) { return errorResponse(res, error, 400); }
+    }
+    if (req.method === "GET" && url.pathname === "/api/kanban") return json(res, 200, { ok: true, kanban: automations.kanban() });
+    if (req.method === "POST" && url.pathname === "/api/experiments") {
+      try {
+        assertAllowed("experiments.write");
+        const experiment = experiments.create(parseExperimentInput(await readJson(req)));
+        return experiment ? json(res, 201, { ok: true, experiment }) : json(res, 404, { error: "Base strategy version or dataset not found", code: "not_found" });
+      } catch (error) { return errorResponse(res, error, 400); }
+    }
+    const experimentActionMatch = /^\/api\/experiments\/([0-9a-f-]{36})\/(start|pause|resume|cancel)$/i.exec(url.pathname);
+    if (req.method === "POST" && experimentActionMatch) {
+      const [, experimentId, action] = experimentActionMatch;
+      if (!experiments.get(experimentId, false)) return json(res, 404, { error: "Experiment not found", code: "not_found" });
+      assertAllowed(action === "pause" ? "experiments.pause" : action === "cancel" ? "experiments.cancel" : "experiments.run");
+      const changed = action === "pause" ? experiments.pause(experimentId) : action === "cancel" ? experiments.cancel(experimentId) : experiments.start(experimentId);
+      return changed ? json(res, 202, { ok: true }) : json(res, 409, { error: `Experiment cannot ${action}`, code: "experiment_state" });
+    }
+    const experimentMatch = /^\/api\/experiments\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (req.method === "GET" && experimentMatch) {
+      const experiment = experiments.get(experimentMatch[1]);
+      return experiment ? json(res, 200, { ok: true, experiment }) : json(res, 404, { error: "Experiment not found", code: "not_found" });
     }
     if (req.method === "GET" && url.pathname === "/api/agents") {
       return json(res, 200, { ok: true, agents: store.listAgents() });
@@ -399,17 +526,18 @@ export async function createOrbitApplication(overrides = {}) {
         }
       }
 
+      const authenticationBypassed = config.authMode === "none";
       const queryToken = url.searchParams.get("access") || "";
-      if (queryToken && auth.accessMatches(queryToken)) {
+      if (!authenticationBypassed && queryToken && auth.accessMatches(queryToken)) {
         const established = auth.establish(req);
         url.searchParams.delete("access");
         res.writeHead(302, securityHeaders({ Location: `${url.pathname}${url.search}`, "Cache-Control": "no-store", "Set-Cookie": established.cookies }));
         return res.end();
       }
 
-      const authContext = auth.authenticate(req);
+      const authContext = authenticationBypassed ? { session: null, legacy: false, publicAccess: config.authMode === "none" } : auth.authenticate(req);
       if (!authContext) return unauthorized(res, url.pathname);
-      if (authContext.legacy && req.method === "GET") {
+      if (!authenticationBypassed && authContext.legacy && req.method === "GET") {
         const established = auth.establish(req);
         res.writeHead(302, securityHeaders({ Location: `${url.pathname}${url.search}`, "Cache-Control": "no-store", "Set-Cookie": established.cookies }));
         return res.end();
@@ -444,9 +572,13 @@ export async function createOrbitApplication(overrides = {}) {
     db,
     store,
     files,
+    backtests,
+    experiments,
+    automations,
     orchestrator,
     server,
     async close() {
+      clearInterval(automationTimer);
       await orchestrator.shutdown();
       if (vite) await vite.close();
       db.close();
